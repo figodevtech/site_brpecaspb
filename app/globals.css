@@ -1,0 +1,149 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-orange-brand: #FF6B00;
+  --color-orange-dark: #E65A00;
+  --color-black-carbon: #0B0D12;
+  --color-dark-surface: #141821;
+}
+
+:root {
+  --radius: 0.5rem;
+
+  /* Identidade BR Peças PB: Preto, Laranja (#FF6B00) e Branco */
+  --background: #F8F9FA;
+  --foreground: #0F172A;
+
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+
+  /* Laranja Vibrante BR Peças PB */
+  --primary: #FF6B00;
+  --primary-foreground: #FFFFFF;
+
+  /* Grafite Carbono Automotivo */
+  --secondary: #11141A;
+  --secondary-foreground: #FFFFFF;
+
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+
+  --accent: #FFF7ED;
+  --accent-foreground: #C2410C;
+
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #FF6B00;
+}
+
+.dark {
+  --background: #0B0D12;
+  --foreground: #F8FAFC;
+
+  --card: #141821;
+  --card-foreground: #F8FAFC;
+
+  --popover: #141821;
+  --popover-foreground: #F8FAFC;
+
+  --primary: #FF6B00;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #1E232F;
+  --secondary-foreground: #FFFFFF;
+
+  --muted: #1E232F;
+  --muted-foreground: #94A3B8;
+
+  --accent: #2A1C14;
+  --accent-foreground: #FF8533;
+
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #262D3D;
+  --input: #262D3D;
+  --ring: #FF6B00;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Utility classes */
+.glass-dark {
+  background: rgba(11, 13, 18, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.badge-qualidade {
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+  border: 1px solid #FF6B00;
+  color: #FFFFFF;
+}
+
+.glow-orange {
+  box-shadow: 0 0 25px rgba(255, 107, 0, 0.35);
+}
+
+.glow-orange-subtle {
+  box-shadow: 0 4px 14px rgba(255, 107, 0, 0.2);
+}
