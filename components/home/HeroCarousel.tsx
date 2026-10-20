@@ -202,30 +202,30 @@ export function HeroCarousel() {
       </div>
 
       {/* Setas de Navegação Laterais Compactas */}
-      <button
+      <Button type="button" variant="ghost" size="sm"
         onClick={prevSlide}
         aria-label="Slide Anterior"
-        className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-2.5 rounded-full bg-black/60 hover:bg-[#FF6B00] text-white border border-white/20 transition-all backdrop-blur-sm active:scale-95 hover:scale-105"
+        className="hidden sm:inline-flex absolute left-4 top-1/2 -translate-y-1/2 z-30 p-2.5 rounded-full bg-black/60 hover:bg-[#FF6B00] text-white border border-white/20 transition-all backdrop-blur-sm active:scale-95 hover:scale-105"
       >
         <ChevronLeft className="w-4 h-4" />
-      </button>
+      </Button>
 
-      <button
+      <Button type="button" variant="ghost" size="sm"
         onClick={nextSlide}
         aria-label="Próximo Slide"
-        className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-2.5 rounded-full bg-black/60 hover:bg-[#FF6B00] text-white border border-white/20 transition-all backdrop-blur-sm active:scale-95 hover:scale-105"
+        className="hidden sm:inline-flex absolute right-4 top-1/2 -translate-y-1/2 z-30 p-2.5 rounded-full bg-black/60 hover:bg-[#FF6B00] text-white border border-white/20 transition-all backdrop-blur-sm active:scale-95 hover:scale-105"
       >
         <ChevronRight className="w-4 h-4" />
-      </button>
+      </Button>
 
       {/* Indicadores / Paginação dos Slides com Barra de Progresso */}
       <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 bg-black/50 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
         {banners.map((_, idx) => (
-          <button
+          <Button type="button" variant="ghost" size="sm"
             key={idx}
             onClick={() => setCurrent(idx)}
             aria-label={`Ir para o slide ${idx + 1}`}
-            className={`h-2 rounded-full transition-all duration-300 ${
+            className={`h-2 min-w-0 p-0 rounded-full transition-all duration-300 ${
               idx === current ? "w-6 bg-[#FF6B00]" : "w-2 bg-white/30 hover:bg-white/60"
             }`}
           />
@@ -234,3 +234,4 @@ export function HeroCarousel() {
     </div>
   );
 }
+

@@ -13,13 +13,14 @@ import {
   Truck,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
+import type { ProductCategory } from "@/lib/types";
 
-export function Footer() {
+export function Footer({ categories = [] }: { categories?: ProductCategory[] }) {
   return (
     <footer className="bg-[#0B0D12] text-zinc-300 border-t border-white/10 pt-16 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Selos de Confiança e Benefícios */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pb-12 border-b border-white/10">
+        <div className="grid min-w-0 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 pb-12 border-b border-white/10">
           <div className="flex items-start gap-3 p-4 rounded-xl bg-[#141821] border border-white/5">
             <div className="p-2.5 rounded-lg bg-orange-950/80 text-[#FF6B00] shrink-0 border border-orange-500/30">
               <ShieldCheck className="w-6 h-6" />
@@ -108,31 +109,10 @@ export function Footer() {
               Departamentos
             </h4>
             <ul className="space-y-2 text-xs text-zinc-400">
-              <li>
-                <Link href="/categoria/painel-de-instrumentos" className="hover:text-white transition-colors">
-                  Painéis de Instrumentos
-                </Link>
-              </li>
-              <li>
-                <Link href="/categoria/modulos" className="hover:text-white transition-colors">
-                  Módulos de Injeção & Freio
-                </Link>
-              </li>
-              <li>
-                <Link href="/categoria/freios" className="hover:text-white transition-colors">
-                  Freios & Pinças
-                </Link>
-              </li>
-              <li>
-                <Link href="/categoria/volantes" className="hover:text-white transition-colors">
-                  Volantes Automotivos
-                </Link>
-              </li>
-              <li>
-                <Link href="/categoria/motor" className="hover:text-white transition-colors">
-                  Motores & Componentes
-                </Link>
-              </li>
+              {categories.slice(0, 6).map(category => <li key={category.id}>
+                <Link href={`/categoria/${category.slug}`} className="hover:text-white transition-colors">{category.nome}</Link>
+              </li>)}
+              <li><Link href="/produtos" className="hover:text-white transition-colors">Catálogo completo</Link></li>
               <li>
                 <Link href="/produtos?condicao=USADO" className="text-orange-400 hover:text-orange-300 font-semibold transition-colors">
                   Catálogo de Peças Seminovas

@@ -7,33 +7,45 @@ import { useWishlistContext } from "@/components/providers/WishlistProvider";
 import { ProductCard } from "@/components/product/ProductCard";
 import { Product } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { AccountShell } from "@/components/account/AccountShell";
+import { useAuth } from "@/components/providers/AuthContext";
+import { useRouter } from "next/navigation";
 
 export default function FavoritosPage() {
+  const { user, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const { favoriteIds, clearWishlist, totalFavorites, isLoaded } = useWishlistContext();
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadedIds, setLoadedIds] = useState("");
+  const idsKey = favoriteIds.join(",");
+  const loading = favoriteIds.length > 0 && loadedIds !== idsKey;
+
+  useEffect(() => {
+    if (!authLoading && !user) router.replace("/login?redirect=/favoritos");
+  }, [authLoading, user, router]);
 
   useEffect(() => {
     if (!isLoaded) return;
 
-    if (favoriteIds.length === 0) {
-      setProducts([]);
-      return;
-    }
+    if (favoriteIds.length === 0) return;
 
-    setLoading(true);
-    fetch(`/api/favoritos?ids=${favoriteIds.join(",")}`)
+    const controller = new AbortController();
+    fetch(`/api/favoritos?ids=${favoriteIds.join(",")}`, { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.products) {
           setProducts(data.products);
+          setLoadedIds(idsKey);
         }
       })
-      .catch((err) => console.error("Erro ao carregar favoritos:", err))
-      .finally(() => setLoading(false));
-  }, [favoriteIds, isLoaded]);
+      .catch((err) => { if (!controller.signal.aborted) { console.error("Erro ao carregar favoritos:", err); setLoadedIds(idsKey); } });
+    return () => controller.abort();
+  }, [favoriteIds, idsKey, isLoaded]);
+
+  if (authLoading || !user) return <div role="status" className="container mx-auto p-8">Carregando sua conta...</div>;
 
   return (
+    <AccountShell>
     <div className="bg-[#F8F9FA] min-h-screen py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-6">
         {/* Breadcrumb */}
@@ -71,7 +83,7 @@ export default function FavoritosPage() {
         </div>
 
         {/* Conteúdo */}
-        {loading ? (
+        {(!isLoaded || (loading && totalFavorites > 0)) ? (
           <div className="min-h-[40vh] flex flex-col items-center justify-center p-8">
             <div className="w-8 h-8 border-4 border-[#FF6B00] border-t-transparent rounded-full animate-spin mb-3" />
             <p className="text-zinc-500 text-xs">Carregando seus produtos favoritos...</p>
@@ -93,13 +105,14 @@ export default function FavoritosPage() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-            {products.map((product) => (
+          <div className="grid min-w-0 grid-cols-1 min-[440px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+            {products.filter(product => favoriteIds.includes(product.id)).map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         )}
       </div>
     </div>
+    </AccountShell>
   );
 }

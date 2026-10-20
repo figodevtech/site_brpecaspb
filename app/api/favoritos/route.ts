@@ -26,36 +26,29 @@ export async function GET(request: Request) {
         id,
         titulo,
         "tituloMarketplace",
-        descricao,
+        "descricaoMarketplace",
         precovenda,
         estoque,
         referencia,
         fabricante,
         "imgUrl",
         conservacao,
-        destaque,
-        site_product_link (
-          preco_site
-        )
+        destaque
       `)
-      .in("id", ids);
+      .in("id", ids).eq("visible", true).eq("is_deleted", false);
 
     if (error) {
       console.error("Erro ao buscar favoritos:", error);
       return NextResponse.json({ error: "Erro ao buscar produtos favoritos." }, { status: 500 });
     }
 
-    const products: Product[] = (dbProducts || []).map((p: any) => {
-      const siteLink = Array.isArray(p.site_product_link)
-        ? p.site_product_link[0]
-        : p.site_product_link;
-
+    const products: Product[] = (dbProducts || []).map((p) => {
       return {
         id: p.id,
         titulo: p.tituloMarketplace || p.titulo,
-        descricao: p.descricao,
+        descricao: p.descricaoMarketplace,
         precovenda: Number(p.precovenda || 0),
-        preco_site: siteLink?.preco_site ? Number(siteLink.preco_site) : null,
+        preco_site: Number(p.precovenda || 0),
         estoque: p.estoque || 0,
         referencia: p.referencia,
         fabricante: p.fabricante,
@@ -66,10 +59,10 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ success: true, products });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Erro na rota de favoritos:", err);
     return NextResponse.json(
-      { error: err.message || "Erro interno." },
+      { error: err instanceof Error ? err.message : "Erro interno." },
       { status: 500 }
     );
   }

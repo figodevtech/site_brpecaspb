@@ -3,18 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/product/ProductCard";
 import { getProducts } from "@/lib/catalog/products";
-import { getCategories, getCategoryBySlug } from "@/lib/catalog/categories";
+import { getCategoryBySlug } from "@/lib/catalog/categories";
 import { ArrowLeft, Layers } from "lucide-react";
 
 interface CategoryPageProps {
   params: Promise<{
     slug: string;
   }>;
-}
-
-export async function generateStaticParams() {
-  const categories = await getCategories();
-  return categories.map((c) => ({ slug: c.slug }));
 }
 
 export default async function CategoryPage({ params }: CategoryPageProps) {

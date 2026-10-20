@@ -1,18 +1,30 @@
 import "server-only";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_STORE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey =
+  process.env.STORE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl) {
+  throw new Error("NEXT_PUBLIC_SUPABASE_URL não configurada no ambiente.");
+}
 
 let _cachedAdminClient: SupabaseClient | null = null;
 
-export function getSupabaseAdmin(): SupabaseClient {
+function getSupabaseAdmin(): SupabaseClient {
   if (_cachedAdminClient) {
     return _cachedAdminClient;
   }
 
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar configurados.");
+  if (!supabaseUrl) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL não configurada no ambiente.");
+  }
+
+  if (!supabaseServiceKey) {
+    throw new Error(
+      "CRITICAL: SUPABASE_SERVICE_ROLE_KEY ausente no servidor. Operações administrativas não podem prosseguir sem a chave com permissão de service role."
+    );
   }
 
   _cachedAdminClient = createClient(supabaseUrl, supabaseServiceKey, {
@@ -25,6 +37,11 @@ export function getSupabaseAdmin(): SupabaseClient {
   return _cachedAdminClient;
 }
 
+/**
+ * Proxy seguro para o cliente administrativo do Supabase.
+ * Falha explicitamente se chamado sem SUPABASE_SERVICE_ROLE_KEY válida no servidor.
+ * Nunca faz fallback silencioso para a chave anônima.
+ */
 export const supabaseAdmin = new Proxy({} as SupabaseClient, {
   get(_target, prop: keyof SupabaseClient) {
     const client = getSupabaseAdmin();

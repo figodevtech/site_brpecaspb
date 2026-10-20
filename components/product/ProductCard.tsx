@@ -73,7 +73,7 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
 
         {/* Botão de Favorito */}
-        <button
+        <Button type="button" variant="ghost" size="sm"
           onClick={(e) => {
             e.preventDefault();
             toggleFavorite(product.id);
@@ -86,7 +86,7 @@ export function ProductCard({ product }: ProductCardProps) {
           title={favorited ? "Remover dos favoritos" : "Adicionar aos favoritos"}
         >
           <Heart className={`w-4 h-4 ${favorited ? "fill-white" : ""}`} />
-        </button>
+        </Button>
       </div>
 
       {/* Conteúdo / Detalhes */}
@@ -147,14 +147,14 @@ export function ProductCard({ product }: ProductCardProps) {
 
           <div className="grid grid-cols-5 gap-1.5 pt-1">
             {hasPrice ? (
-              <button
+              <Button type="button" variant="ghost" size="sm"
                 onClick={() => addItem(product)}
                 disabled={!inStock}
                 className="col-span-4 flex items-center justify-center gap-1.5 py-2 px-3 bg-[#FF6B00] hover:bg-[#E65A00] disabled:bg-zinc-200 disabled:text-zinc-400 text-white font-bold text-xs rounded-lg transition-colors shadow-sm active:scale-95"
               >
                 <ShoppingCart className="w-3.5 h-3.5" />
                 <span>{inStock ? "Comprar Agora" : "Sem Estoque"}</span>
-              </button>
+              </Button>
             ) : (
               <Link
                 href={`/produto/${product.id}`}
@@ -181,3 +181,5 @@ export function ProductCard({ product }: ProductCardProps) {
     </div>
   );
 }
+
+import { Button } from "@/components/ui/button";

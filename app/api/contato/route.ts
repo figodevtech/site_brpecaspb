@@ -31,10 +31,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, message: "Mensagem enviada com sucesso!" });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Erro no formulário de contato:", err);
     return NextResponse.json(
-      { error: err.message || "Erro ao processar contato." },
+      { error: err instanceof Error ? err.message : "Erro ao processar contato." },
       { status: 400 }
     );
   }

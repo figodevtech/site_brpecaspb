@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
+import { AuthProvider } from "@/components/providers/AuthContext";
+import { RouteShell } from "@/components/layout/RouteShell";
 import { CartProvider } from "@/components/providers/CartProvider";
 import { WishlistProvider } from "@/components/providers/WishlistProvider";
-import { CartDrawer } from "@/components/cart/CartDrawer";
 import { Toaster } from "@/components/ui/sonner";
 import NextTopLoader from "nextjs-toploader";
 import { siteConfig } from "@/lib/site-config";
+import { getCategories } from "@/lib/catalog/categories";
+
+// O catálogo recebe atualizações do ERP sem depender de um novo build.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: {
@@ -64,24 +67,22 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const categories = await getCategories();
   return (
     <html lang="pt-BR">
       <body className="antialiased min-h-screen flex flex-col bg-[#F8F9FA] text-[#0F172A]">
         <NextTopLoader color="#FF6B00" height={3} showSpinner={false} />
-        <WishlistProvider>
+        <AuthProvider><WishlistProvider>
           <CartProvider>
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer />
-            <CartDrawer />
+            <RouteShell categories={categories}>{children}</RouteShell>
             <Toaster position="top-right" richColors />
           </CartProvider>
-        </WishlistProvider>
+        </WishlistProvider></AuthProvider>
       </body>
     </html>
   );

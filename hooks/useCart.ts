@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Product, CartItem } from "@/lib/types";
+import { toast } from "sonner";
+import { purchasableQuantity, restoreCart } from "@/lib/cart";
 
 const CART_STORAGE_KEY = "br_pecas_cart_v1";
 
@@ -12,16 +14,19 @@ export function useCart() {
 
   // Carregar do localStorage
   useEffect(() => {
+    const timer = window.setTimeout(() => {
     try {
       const stored = localStorage.getItem(CART_STORAGE_KEY);
       if (stored) {
-        setItems(JSON.parse(stored));
+        setItems(restoreCart(JSON.parse(stored)));
       }
     } catch (e) {
       console.error("Falha ao recuperar carrinho:", e);
     } finally {
       setIsLoaded(true);
     }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   // Salvar no localStorage
@@ -34,9 +39,10 @@ export function useCart() {
     }
   }, [items, isLoaded]);
 
-  const addItem = (product: Product, quantity = 1) => {
-    if (product.estoque <= 0) {
-      alert("Desculpe, este produto está temporariamente sem estoque.");
+  const addItem = useCallback((product: Product, quantity = 1) => {
+    const availableQuantity = purchasableQuantity(product, quantity);
+    if (!availableQuantity) {
+      toast.error("Este produto não está disponível para compra.");
       return;
     }
 
@@ -44,26 +50,28 @@ export function useCart() {
       const existingIndex = prev.findIndex((i) => i.produto.id === product.id);
       if (existingIndex > -1) {
         const currentQty = prev[existingIndex].quantidade;
-        const newQty = Math.min(currentQty + quantity, product.estoque);
+        const newQty = purchasableQuantity(product, currentQty + availableQuantity);
         const updated = [...prev];
         updated[existingIndex] = {
           ...updated[existingIndex],
+          produto: product,
           quantidade: newQty,
         };
         return updated;
       } else {
-        return [...prev, { produto: product, quantidade: Math.min(quantity, product.estoque) }];
+        return [...prev, { produto: product, quantidade: availableQuantity }];
       }
     });
 
     setIsOpen(true);
-  };
+  }, []);
 
-  const removeItem = (productId: number) => {
+  const removeItem = useCallback((productId: number) => {
     setItems((prev) => prev.filter((i) => i.produto.id !== productId));
-  };
+  }, []);
 
-  const updateQuantity = (productId: number, quantity: number) => {
+  const updateQuantity = useCallback((productId: number, quantity: number) => {
+    if (!Number.isFinite(quantity)) return;
     if (quantity <= 0) {
       removeItem(productId);
       return;
@@ -72,22 +80,22 @@ export function useCart() {
     setItems((prev) =>
       prev.map((i) => {
         if (i.produto.id === productId) {
-          const validQty = Math.min(quantity, i.produto.estoque);
+          const validQty = purchasableQuantity(i.produto, quantity);
           return { ...i, quantidade: validQty };
         }
         return i;
-      })
+      }).filter(item => item.quantidade > 0)
     );
-  };
+  }, [removeItem]);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setItems([]);
     try {
       localStorage.removeItem(CART_STORAGE_KEY);
-    } catch (e) {
+    } catch {
       // ignore
     }
-  };
+  }, []);
 
   const subtotal = items.reduce(
     (sum, i) => sum + (i.produto.preco_site ?? i.produto.precovenda) * i.quantidade,

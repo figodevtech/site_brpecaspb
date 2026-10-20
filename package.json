@@ -3,11 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/next-dev.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "db:setup": "node scripts/db/setup-storefront.mjs"
+    "lint": "eslint",
+    "db:setup": "node --use-system-ca scripts/db/migrate.mjs deploy",
+    "db:status": "node --use-system-ca scripts/db/migrate.mjs status",
+    "db:dry-run": "node --use-system-ca scripts/db/migrate.mjs dry-run",
+    "db:deploy": "node --use-system-ca scripts/db/migrate.mjs deploy",
+    "db:baseline": "node --use-system-ca scripts/db/migrate.mjs baseline",
+    "db:test": "node --test scripts/db/migrate.test.mjs",
+    "test:integration": "node --test scripts/integration.test.mjs scripts/auth-cookie.test.mjs",
+    "db:verify": "node --use-system-ca scripts/db/verify-storefront.mjs",
+    "db:template:check": "node ../scripts/storefront/template.mjs check site_brpecaspb"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

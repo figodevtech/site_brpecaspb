@@ -2,6 +2,8 @@ import type { MetadataRoute } from "next";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getCategories } from "@/lib/catalog/categories";
 
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://brpecaspb.com.br";
 
@@ -65,6 +67,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const { data: prods } = await supabaseAdmin
       .from("produto")
       .select("id, updatedat")
+      .eq("visible", true)
+      .eq("is_deleted", false)
       .limit(500);
 
     if (prods) {

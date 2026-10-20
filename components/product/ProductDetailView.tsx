@@ -68,8 +68,8 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
     try {
       const opts = await calculateShipping({ cep: clean, subtotal: price });
       setShippingOptions(opts);
-    } catch (err: any) {
-      setShippingError(err.message || "Erro ao calcular frete.");
+    } catch (err) {
+      setShippingError(err instanceof Error ? err.message : "Erro ao calcular frete.");
     } finally {
       setShippingLoading(false);
     }
@@ -139,7 +139,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
                 </div>
 
                 {/* Botão de Favorito */}
-                <button
+                <Button type="button" variant="ghost" size="sm"
                   onClick={() => toggleFavorite(product.id)}
                   className={`absolute top-3 right-3 p-2.5 rounded-full backdrop-blur-md transition-all ${
                     favorited
@@ -149,14 +149,14 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
                   title={favorited ? "Favoritado" : "Favoritar"}
                 >
                   <Heart className={`w-5 h-5 ${favorited ? "fill-white" : ""}`} />
-                </button>
+                </Button>
               </div>
 
               {/* Thumbnails da Galeria */}
               {allImages.length > 1 && (
                 <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
                   {allImages.map((imgUrl, idx) => (
-                    <button
+                    <Button type="button" variant="ghost" size="sm"
                       key={idx}
                       onClick={() => setActiveImageIndex(idx)}
                       className={`relative w-20 h-20 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
@@ -171,7 +171,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
                         fill
                         className="object-contain p-1"
                       />
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
@@ -308,7 +308,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
                   </h4>
 
                   <form onSubmit={handleCalculateShipping} className="flex gap-2 max-w-sm">
-                    <input
+                    <Input
                       type="text"
                       value={cepInput}
                       onChange={(e) => setCepInput(e.target.value)}
@@ -417,3 +417,5 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
     </div>
   );
 }
+
+import { Input } from "@/components/ui/input";

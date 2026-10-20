@@ -1,176 +1,134 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
+import { getAsaasPayment } from "@/lib/asaas";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const webhookToken = String(process.env.ASAAS_WEBHOOK_TOKEN || "").trim();
+
+function secureEquals(received: string, expected: string) {
+  const receivedBuffer = Buffer.from(received, "utf8");
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  return (
+    receivedBuffer.length === expectedBuffer.length &&
+    crypto.timingSafeEqual(receivedBuffer, expectedBuffer)
+  );
+}
+
+function localStatus(asaasStatus: string) {
+  const status = asaasStatus.trim().toUpperCase();
+  if (["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"].includes(status)) return "PAGO";
+  if (
+    [
+      "REFUNDED",
+      "DELETED",
+    ].includes(status)
+  ) {
+    return "CANCELADO";
+  }
+  return "PENDENTE";
+}
+
+function paymentMethod(billingType?: string) {
+  const value = String(billingType || "").trim().toUpperCase();
+  if (value === "PIX") return "PIX";
+  if (value === "BOLETO") return "Boleto";
+  if (value === "CREDIT_CARD") return "Cartão de crédito";
+  return "Asaas";
+}
 
 export async function POST(request: Request) {
   try {
-    // 1. Verificação de token de webhook (se configurado)
-    const webhookTokenHeader = request.headers.get("asaas-access-token");
-    const configuredWebhookSecret = process.env.ASAAS_WEBHOOK_SECRET;
+    if (!webhookToken) {
+      console.error("[webhook/asaas] ASAAS_WEBHOOK_TOKEN não configurado.");
+      return NextResponse.json({ error: "Webhook não configurado" }, { status: 503 });
+    }
 
-    if (configuredWebhookSecret && webhookTokenHeader) {
-      if (webhookTokenHeader !== configuredWebhookSecret) {
-        console.warn("Webhook Asaas rejeitado: token inválido.");
-        return NextResponse.json({ error: "Token de webhook inválido." }, { status: 401 });
+    const receivedToken = String(request.headers.get("asaas-access-token") || "").trim();
+    if (!receivedToken || !secureEquals(receivedToken, webhookToken)) {
+      return NextResponse.json({ error: "Token de webhook inválido" }, { status: 401 });
+    }
+
+    const payload = await request.json().catch(() => null);
+    const eventId = String(payload?.id || "").trim();
+    const eventType = String(payload?.event || "").trim().toUpperCase();
+    const paymentId = String(payload?.payment?.id || "").trim();
+
+    if (!eventId || !eventType || !paymentId) {
+      return NextResponse.json({ error: "Evento incompleto" }, { status: 400 });
+    }
+
+    // O payload identifica o recurso, mas o estado financeiro é relido na API oficial.
+    const payment = await getAsaasPayment(paymentId);
+    const orderId = Number(payment.externalReference);
+
+    if (!Number.isSafeInteger(orderId) || orderId <= 0) {
+      console.warn("[webhook/asaas] Cobrança sem pedido local válido:", paymentId);
+      return NextResponse.json({ received: true, ignored: true });
+    }
+
+    const gatewayStatus = String(payment.status || "PENDING").trim().toUpperCase();
+    const { data: result, error } = await supabaseAdmin.rpc(
+      "fn_processar_evento_pagamento_asaas",
+      {
+        p_event_id: eventId,
+        p_event_type: eventType,
+        p_payment_id: paymentId,
+        p_venda_id: orderId,
+        p_gateway_status: gatewayStatus,
+        p_novo_status: localStatus(gatewayStatus),
+        p_forma_pagamento: paymentMethod(payment.billingType),
       }
+    );
+
+    if (error) {
+      console.error("[webhook/asaas] Falha transacional:", error);
+      return NextResponse.json({ error: "Falha ao processar evento" }, { status: 500 });
     }
 
-    const payload = await request.json();
-    const event = payload?.event;
-    const payment = payload?.payment;
-
-    if (!event || !payment?.id) {
-      return NextResponse.json({ error: "Payload de webhook incompleto." }, { status: 400 });
-    }
-
-    const eventId = `${event}_${payment.id}_${payment.status || ""}_${Date.now()}`;
-    const paymentId = payment.id;
-    const externalRef = payment.externalReference;
-    const orderId = externalRef ? parseInt(externalRef, 10) : null;
-
-    // 2. Idempotência: verificar se já processamos exatamente este evento para este payment
-    const { data: existingEvent } = await supabaseAdmin
-      .from("payment_webhook_event")
-      .select("id")
-      .eq("provider", "ASAAS")
-      .eq("payment_id", paymentId)
-      .eq("gateway_status", payment.status || event)
-      .maybeSingle();
-
-    if (existingEvent) {
-      return NextResponse.json({
-        received: true,
-        message: "Evento já processado anteriormente (idempotente).",
+    if (eventType === "PAYMENT_REFUND_DENIED" && gatewayStatus !== "REFUNDED") {
+      // Asaas dateCreated has no offset and uses Brasilia time.
+      const rawDate = String(payload.dateCreated || "");
+      const deniedAt = new Date(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(rawDate) ? rawDate.replace(" ", "T") + "-03:00" : rawDate);
+      if (!Number.isFinite(deniedAt.getTime())) throw new Error("Data de recusa invalida.");
+      const { error: denialError } = await supabaseAdmin.rpc("fn_registrar_recusa_estorno_site", {
+        p_order_id: orderId, p_payment_id: paymentId,
+        p_reason: String(payload.additionalInfo?.denialReason || "Estorno recusado pelo Asaas"),
+        p_denied_at: deniedAt.toISOString(),
       });
+      if (denialError) throw denialError;
     }
 
-    // 3. Localizar a venda correspondente
-    let vendaId: number | null = orderId && !isNaN(orderId) ? orderId : null;
-
-    if (!vendaId) {
-      const { data: vendaFound } = await supabaseAdmin
-        .from("venda")
-        .select("id")
-        .eq("gateway_payment_id", paymentId)
-        .maybeSingle();
-
-      if (vendaFound) {
-        vendaId = vendaFound.id;
+    // Run even for duplicate events: a previous ERP delivery may have failed.
+    const erpWebhookUrl = process.env.ERP_ORDER_WEBHOOK_URL?.trim();
+    if (erpWebhookUrl && ["PAGO", "CANCELADO"].includes(localStatus(gatewayStatus))) {
+      const erpResponse = await fetch(erpWebhookUrl, {
+        method: "POST", headers: { Authorization: `Bearer ${process.env.ERP_ORDER_SYNC_SECRET?.trim() || ""}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }), cache: "no-store", signal: AbortSignal.timeout(60_000),
+      });
+      if (!erpResponse.ok) {
+        const erpError = await erpResponse.json().catch(() => null);
+        console.error("[webhook/asaas] Falha na entrega ao ERP", {
+          eventId, orderId, erpStatus: erpResponse.status,
+          error: typeof erpError?.error === "string" ? erpError.error : "Resposta sem erro JSON",
+        });
+        return NextResponse.json({
+          error: "Pagamento atualizado; sincronização ERP pendente.",
+          erpStatus: erpResponse.status,
+        }, { status: 502 });
       }
     }
-
-    let resultingStatus = "PENDENTE";
-
-    // 4. Processamento de status do evento Asaas
-    switch (event) {
-      case "PAYMENT_CONFIRMED":
-      case "PAYMENT_RECEIVED": {
-        resultingStatus = "PAGO";
-        if (vendaId) {
-          // Atualiza o status da venda e data de pagamento
-          await supabaseAdmin
-            .from("venda")
-            .update({
-              status: "PAGO",
-              gateway_status: payment.status || "RECEIVED",
-              pagamento_em: new Date().toISOString(),
-              updatedat: new Date().toISOString(),
-            })
-            .eq("id", vendaId);
-
-          // Baixa transacional e atômica de estoque via Postgres function
-          try {
-            await supabaseAdmin.rpc("fn_baixar_estoque_venda", {
-              p_venda_id: vendaId,
-            });
-            console.log(`Estoque baixado com sucesso para venda #${vendaId}`);
-          } catch (stockErr) {
-            console.error(`Erro ao baixar estoque da venda #${vendaId}:`, stockErr);
-          }
-        }
-        break;
-      }
-
-      case "PAYMENT_REFUNDED":
-      case "PAYMENT_DELETED": {
-        resultingStatus = "CANCELADO";
-        if (vendaId) {
-          await supabaseAdmin
-            .from("venda")
-            .update({
-              status: "CANCELADO",
-              gateway_status: payment.status || "REFUNDED",
-              cancelada_at: new Date().toISOString(),
-              motivo_cancelamento: "Estorno ou exclusão pelo Asaas Gateway",
-              updatedat: new Date().toISOString(),
-            })
-            .eq("id", vendaId);
-
-          // Estorno de estoque para reposição
-          try {
-            await supabaseAdmin.rpc("fn_estornar_estoque_venda", {
-              p_venda_id: vendaId,
-            });
-            console.log(`Estoque estornado com sucesso para venda #${vendaId}`);
-          } catch (refundErr) {
-            console.error(`Erro ao estornar estoque da venda #${vendaId}:`, refundErr);
-          }
-        }
-        break;
-      }
-
-      case "PAYMENT_OVERDUE": {
-        resultingStatus = "CANCELADO";
-        if (vendaId) {
-          await supabaseAdmin
-            .from("venda")
-            .update({
-              status: "CANCELADO",
-              gateway_status: "OVERDUE",
-              motivo_cancelamento: "Prazo de pagamento expirado no Asaas",
-              updatedat: new Date().toISOString(),
-            })
-            .eq("id", vendaId);
-        }
-        break;
-      }
-
-      default: {
-        resultingStatus = payment.status || "EM_PROCESSAMENTO";
-        if (vendaId) {
-          await supabaseAdmin
-            .from("venda")
-            .update({
-              gateway_status: payment.status || event,
-              updatedat: new Date().toISOString(),
-            })
-            .eq("id", vendaId);
-        }
-        break;
-      }
-    }
-
-    // 5. Registrar evento de webhook para auditoria e controle de idempotência
-    await supabaseAdmin.from("payment_webhook_event").insert({
-      provider: "ASAAS",
-      event_id: eventId,
-      event_type: event,
-      payment_id: paymentId,
-      venda_id: vendaId,
-      gateway_status: payment.status || event,
-      resulting_order_status: resultingStatus,
-    });
 
     return NextResponse.json({
       received: true,
-      event,
-      vendaId,
-      resultingStatus,
+      result,
+      orderId,
+      status: gatewayStatus,
     });
-  } catch (err: any) {
-    console.error("Erro crítico no webhook Asaas:", err);
-    return NextResponse.json(
-      { error: err.message || "Erro interno ao processar webhook." },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("[webhook/asaas] Exceção:", error);
+    return NextResponse.json({ error: "Falha ao consultar ou processar cobrança" }, { status: 500 });
   }
 }

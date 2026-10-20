@@ -75,7 +75,7 @@ export async function getProducts(filters: ProductFilters = {}): Promise<{ produ
         id,
         titulo,
         "tituloMarketplace",
-        descricao,
+
         "descricaoMarketplace",
         precovenda,
         estoque,
@@ -88,20 +88,16 @@ export async function getProducts(filters: ProductFilters = {}): Promise<{ produ
         conservacao,
         destaque,
         codigobarras,
-        local,
+
         produtogrupo (
           id,
           nome
-        ),
-        site_product_link (
-          preco_site,
-          status
         )
       `,
         { count: "exact" }
       )
       .eq("is_deleted", false)
-      .not("imgUrl", "is", null);
+      .eq("visible", true);
 
     // Se houve filtro veicular
     if (compatibleProductIds !== null) {
@@ -112,9 +108,9 @@ export async function getProducts(filters: ProductFilters = {}): Promise<{ produ
     }
 
     if (query && query.trim()) {
-      const q = query.trim();
+      const q = query.trim().replace(/[%_,().\\]/g, " ").slice(0, 160);
       supabaseQuery = supabaseQuery.or(
-        `titulo.ilike.%${q}%,descricao.ilike.%${q}%,referencia.ilike.%${q}%,fabricante.ilike.%${q}%,codigobarras.ilike.%${q}%`
+        `titulo.ilike.%${q}%,descricaoMarketplace.ilike.%${q}%,referencia.ilike.%${q}%,fabricante.ilike.%${q}%,codigobarras.ilike.%${q}%`
       );
     }
 
@@ -192,14 +188,9 @@ export async function getProducts(filters: ProductFilters = {}): Promise<{ produ
       }
     }
 
-    const mappedProducts: Product[] = data.map((item: any) => {
-      const siteLink = Array.isArray(item.site_product_link)
-        ? item.site_product_link[0]
-        : item.site_product_link;
-
-      const effectivePrice = siteLink?.preco_site
-        ? Number(siteLink.preco_site)
-        : Number(item.precovenda || 0);
+    const mappedProducts: Product[] = data.map((item) => {
+      const group = Array.isArray(item.produtogrupo) ? item.produtogrupo[0] : item.produtogrupo;
+      const effectivePrice = Number(item.precovenda || 0);
 
       const isUsed = (item.conservacao || "USADO").toUpperCase() === "USADO";
 
@@ -207,22 +198,22 @@ export async function getProducts(filters: ProductFilters = {}): Promise<{ produ
         id: item.id,
         titulo: item.titulo,
         tituloMarketplace: item.tituloMarketplace,
-        descricao: item.descricao,
+        descricao: item.descricaoMarketplace,
         descricaoMarketplace: item.descricaoMarketplace,
         precovenda: effectivePrice,
-        preco_site: siteLink?.preco_site ? Number(siteLink.preco_site) : null,
+        preco_site: effectivePrice,
         estoque: Number(item.estoque || 0),
         status_estoque: item.status_estoque || (item.estoque > 0 ? "OK" : "ESGOTADO"),
         em_estoque: item.em_estoque !== undefined ? Boolean(item.em_estoque) : item.estoque > 0,
         referencia: item.referencia,
         fabricante: item.fabricante,
         grupo_produto_id: item.grupo_produto_id,
-        grupo_nome: item.produtogrupo?.nome || null,
+        grupo_nome: group?.nome || null,
         imgUrl: item.imgUrl || (imagesByProduct[item.id]?.[0]?.url ?? null),
-        conservacao: (item.conservacao as any) || "USADO",
+        conservacao: (item.conservacao as Product["conservacao"]) || "USADO",
         destaque: Boolean(item.destaque),
         codigobarras: item.codigobarras,
-        local: item.local,
+        
         garantia_dias: isUsed ? 90 : 180, // 90 dias garantia legal para peças usadas (CDC)
         imagens: imagesByProduct[item.id] || [],
         origem_veiculo: isUsed
@@ -234,11 +225,7 @@ export async function getProducts(filters: ProductFilters = {}): Promise<{ produ
       };
     });
 
-    const validProducts = mappedProducts.filter(
-      (p) => !!p.imgUrl && p.imgUrl.trim() !== ""
-    );
-
-    return { products: validProducts, total: count !== null ? count : validProducts.length };
+    return { products: mappedProducts, total: count ?? mappedProducts.length };
   } catch (err) {
     console.error("Erro fatal em getProducts:", err);
     return { products: [], total: 0 };
@@ -254,7 +241,7 @@ export async function getProductById(id: number): Promise<Product | null> {
         id,
         titulo,
         "tituloMarketplace",
-        descricao,
+
         "descricaoMarketplace",
         precovenda,
         estoque,
@@ -267,19 +254,16 @@ export async function getProductById(id: number): Promise<Product | null> {
         conservacao,
         destaque,
         codigobarras,
-        local,
+
         produtogrupo (
           id,
           nome
-        ),
-        site_product_link (
-          preco_site,
-          status
         )
       `
       )
       .eq("id", id)
       .eq("is_deleted", false)
+      .eq("visible", true)
       .single();
 
     if (error || !item) {
@@ -294,10 +278,6 @@ export async function getProductById(id: number): Promise<Product | null> {
       .order("ordem", { ascending: true });
 
     const primaryImg = item.imgUrl || images?.[0]?.url || null;
-    if (!primaryImg || primaryImg.trim() === "") {
-      // Produtos sem foto não devem aparecer
-      return null;
-    }
 
     // Buscar compatibilidades do produto
     const { data: compLinks } = await supabaseAdmin
@@ -319,25 +299,12 @@ export async function getProductById(id: number): Promise<Product | null> {
       )
       .eq("produto_id", id);
 
-    const compatibilidades: VehicleCompatibility[] = (compLinks || []).map((link: any) => ({
-      id: link.veiculo_compatibilidade?.id,
-      montadora: link.veiculo_compatibilidade?.montadora,
-      modelo: link.veiculo_compatibilidade?.modelo,
-      ano_inicio: link.veiculo_compatibilidade?.ano_inicio,
-      ano_fim: link.veiculo_compatibilidade?.ano_fim,
-      motor: link.veiculo_compatibilidade?.motor,
-      versao: link.veiculo_compatibilidade?.versao,
-      combustivel: link.veiculo_compatibilidade?.combustivel,
-      observacao: link.observacao,
-    }));
+    const compatibilidades: VehicleCompatibility[] = (compLinks || []).flatMap(link => {
+      const vehicle = Array.isArray(link.veiculo_compatibilidade) ? link.veiculo_compatibilidade[0] : link.veiculo_compatibilidade;
+      return vehicle ? [{ ...vehicle, observacao: link.observacao }] : [];
+    });
 
-    const siteLink = Array.isArray(item.site_product_link)
-      ? item.site_product_link[0]
-      : item.site_product_link;
-
-    const effectivePrice = siteLink?.preco_site
-      ? Number(siteLink.preco_site)
-      : Number(item.precovenda || 0);
+    const effectivePrice = Number(item.precovenda || 0);
 
     const isUsed = (item.conservacao || "USADO").toUpperCase() === "USADO";
 
@@ -345,22 +312,22 @@ export async function getProductById(id: number): Promise<Product | null> {
       id: item.id,
       titulo: item.titulo,
       tituloMarketplace: item.tituloMarketplace,
-      descricao: item.descricao,
+      descricao: item.descricaoMarketplace,
       descricaoMarketplace: item.descricaoMarketplace,
       precovenda: effectivePrice,
-      preco_site: siteLink?.preco_site ? Number(siteLink.preco_site) : null,
+      preco_site: effectivePrice,
       estoque: Number(item.estoque || 0),
       status_estoque: item.status_estoque || (item.estoque > 0 ? "OK" : "ESGOTADO"),
       em_estoque: item.em_estoque !== undefined ? Boolean(item.em_estoque) : item.estoque > 0,
       referencia: item.referencia,
       fabricante: item.fabricante,
       grupo_produto_id: item.grupo_produto_id,
-      grupo_nome: (item.produtogrupo as any)?.nome || null,
+      grupo_nome: (Array.isArray(item.produtogrupo) ? item.produtogrupo[0] : item.produtogrupo)?.nome || null,
       imgUrl: item.imgUrl || images?.[0]?.url || null,
-      conservacao: (item.conservacao as any) || "USADO",
+      conservacao: (item.conservacao as Product["conservacao"]) || "USADO",
       destaque: Boolean(item.destaque),
       codigobarras: item.codigobarras,
-      local: item.local,
+      
       garantia_dias: isUsed ? 90 : 180,
       imagens: images || [],
       compatibilidades,

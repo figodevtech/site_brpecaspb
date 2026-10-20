@@ -19,9 +19,10 @@ import { formatPrice } from "@/lib/utils";
 import { calculateShipping } from "@/lib/shipping";
 import { ShippingOption } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export default function CartPage() {
-  const { items, updateQuantity, removeItem, clearCart, subtotal, totalItems } = useCartContext();
+  const { items, updateQuantity, removeItem, clearCart, subtotal, totalItems, isLoaded } = useCartContext();
 
   const [cep, setCep] = useState("");
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[] | null>(null);
@@ -42,8 +43,8 @@ export default function CartPage() {
       const opts = await calculateShipping({ cep: clean, subtotal });
       setShippingOptions(opts);
       setSelectedShipping(opts[0]);
-    } catch (err: any) {
-      setShippingError(err.message || "Erro ao calcular frete.");
+    } catch (err) {
+      setShippingError(err instanceof Error ? err.message : "Erro ao calcular frete.");
     } finally {
       setShippingLoading(false);
     }
@@ -51,6 +52,8 @@ export default function CartPage() {
 
   const shippingCost = selectedShipping?.preco || 0;
   const grandTotal = subtotal + shippingCost;
+
+  if (!isLoaded) return <div role="status" className="container mx-auto px-4 py-16">Carregando seu carrinho...</div>;
 
   if (items.length === 0) {
     return (
@@ -77,21 +80,21 @@ export default function CartPage() {
   return (
     <div className="bg-[#F8F9FA] min-h-screen py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <h1 className="text-2xl sm:text-3xl font-black text-zinc-950 tracking-tight">
             Carrinho de Compras ({totalItems} itens)
           </h1>
-          <button
+          <Button type="button" variant="ghost" size="sm"
             onClick={clearCart}
             className="text-xs text-zinc-500 hover:text-red-600 transition-colors"
           >
             Esvaziar Carrinho
-          </button>
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Lista de Itens (8 colunas) */}
-          <div className="lg:col-span-8 space-y-4">
+          <div className="min-w-0 lg:col-span-8 space-y-4">
             {items.map((item) => {
               const price = item.produto.preco_site ?? item.produto.precovenda;
               const isUsed = item.produto.conservacao === "USADO";
@@ -101,7 +104,7 @@ export default function CartPage() {
                   key={item.produto.id}
                   className="bg-white rounded-2xl border border-zinc-200 p-4 sm:p-5 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between shadow-sm"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex min-w-0 w-full sm:w-auto items-center gap-3 sm:gap-4">
                     <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-zinc-50 border border-zinc-200 shrink-0">
                       {item.produto.imgUrl ? (
                         <Image
@@ -117,8 +120,8 @@ export default function CartPage() {
                       )}
                     </div>
 
-                    <div>
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
                         {isUsed ? (
                           <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-zinc-900 text-[#FF6B00]">
                             PEÇA SEMINOVA
@@ -151,22 +154,22 @@ export default function CartPage() {
                   <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-zinc-100">
                     {/* Controles de Quantidade */}
                     <div className="flex items-center border border-zinc-300 rounded-lg">
-                      <button
+                      <Button type="button" variant="ghost" size="sm"
                         onClick={() => updateQuantity(item.produto.id, item.quantidade - 1)}
                         className="p-1.5 text-zinc-600 hover:bg-zinc-100"
                       >
                         <Minus className="w-3.5 h-3.5" />
-                      </button>
+                      </Button>
                       <span className="px-3 text-xs font-bold text-zinc-900">
                         {item.quantidade}
                       </span>
-                      <button
+                      <Button type="button" variant="ghost" size="sm"
                         onClick={() => updateQuantity(item.produto.id, item.quantidade + 1)}
                         disabled={item.quantidade >= item.produto.estoque}
                         className="p-1.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                      </button>
+                      </Button>
                     </div>
 
                     {/* Preço Total do Item */}
@@ -177,13 +180,13 @@ export default function CartPage() {
                     </div>
 
                     {/* Botão Remover */}
-                    <button
+                    <Button type="button" variant="ghost" size="sm"
                       onClick={() => removeItem(item.produto.id)}
                       className="text-zinc-400 hover:text-red-500 transition-colors p-1"
                       title="Remover"
                     >
                       <Trash2 className="w-4 h-4" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );
@@ -209,12 +212,12 @@ export default function CartPage() {
 
               {/* Cálculo de Frete no Carrinho */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 mb-1.5 flex items-center gap-1.5">
+                <Label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 mb-1.5 flex items-center gap-1.5">
                   <Truck className="w-4 h-4 text-[#FF6B00]" />
                   Calcular Frete
-                </label>
+                </Label>
                 <form onSubmit={handleCalculateShipping} className="flex gap-2">
-                  <input
+                  <Input
                     type="text"
                     value={cep}
                     onChange={(e) => setCep(e.target.value)}
@@ -235,9 +238,9 @@ export default function CartPage() {
                 )}
 
                 {shippingOptions && (
-                  <div className="mt-3 space-y-1.5">
+                  <RadioGroup className="mt-3 space-y-1.5" value={selectedShipping?.id || ""} onValueChange={(id) => setSelectedShipping(shippingOptions.find(option => option.id === id) || null)} aria-label="Opções de entrega">
                     {shippingOptions.map((opt) => (
-                      <label
+                      <Label
                         key={opt.id}
                         className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
                           selectedShipping?.id === opt.id
@@ -246,13 +249,7 @@ export default function CartPage() {
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="shipping"
-                            checked={selectedShipping?.id === opt.id}
-                            onChange={() => setSelectedShipping(opt)}
-                            className="accent-[#FF6B00]"
-                          />
+                          <RadioGroupItem value={opt.id} aria-label={opt.nome} />
                           <div>
                             <span className="font-semibold text-zinc-900 block">{opt.nome}</span>
                             <span className="text-[10px] text-zinc-500">{opt.prazo}</span>
@@ -261,9 +258,9 @@ export default function CartPage() {
                         <span className="font-black text-zinc-900">
                           {opt.preco === 0 ? "GRÁTIS" : formatPrice(opt.preco)}
                         </span>
-                      </label>
+                      </Label>
                     ))}
-                  </div>
+                  </RadioGroup>
                 )}
               </div>
 
@@ -318,3 +315,6 @@ export default function CartPage() {
     </div>
   );
 }
+
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";

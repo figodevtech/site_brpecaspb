@@ -15,12 +15,11 @@ export interface AsaasCustomer {
   id: string;
   name?: string;
   cpfCnpj?: string;
-  email?: string;
-  phone?: string;
   externalReference?: string;
 }
 
 export interface AsaasPayment {
+  refunds?: Array<{ status?: string }> | null;
   id: string;
   customer?: string;
   billingType?: string;
@@ -29,10 +28,17 @@ export interface AsaasPayment {
   netValue?: number;
   dueDate?: string;
   invoiceUrl?: string;
-  bankSlipUrl?: string;
-  pixQrCodeUrl?: string;
-  pixCopiaECola?: string;
   externalReference?: string;
+}
+
+export interface AsaasCardToken {
+  creditCardToken: string;
+  creditCardNumber?: string;
+  creditCardBrand?: string;
+}
+
+interface AsaasList<T> {
+  data?: T[];
 }
 
 export class AsaasApiError extends Error {
@@ -46,148 +52,104 @@ export class AsaasApiError extends Error {
   }
 }
 
-export function isAsaasConfigured(): boolean {
-  return Boolean(apiKey && apiKey.length > 10);
+export function assertAsaasConfigured() {
+  if (!apiKey) {
+    throw new AsaasApiError("ASAAS_API_KEY não configurada no servidor.", 500);
+  }
 }
 
-async function requestAsaas<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  if (!apiKey) {
-    throw new AsaasApiError("Chave de API do Asaas não configurada.", 500);
-  }
+function extractErrorMessage(payload: unknown) {
+  if (!payload || typeof payload !== "object") return "Erro não identificado no Asaas.";
 
-  const url = `${asaasApiUrl}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      access_token: apiKey,
-      ...(options.headers || {}),
-    },
+  const record = payload as Record<string, unknown>;
+  const errors = Array.isArray(record.errors) ? record.errors : [];
+  const messages = errors
+    .map((item) => {
+      if (!item || typeof item !== "object") return "";
+      return String((item as Record<string, unknown>).description || "").trim();
+    })
+    .filter(Boolean);
+
+  return messages.join(" ") || String(record.message || "Erro não identificado no Asaas.");
+}
+
+export async function asaasRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  assertAsaasConfigured();
+
+  const response = await fetch(`${asaasApiUrl}${path}`, {
+    ...init,
     cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "BRPecasPBStore/1.0",
+      access_token: apiKey,
+      ...(init.headers || {}),
+    },
   });
 
-  const payload = await response.json().catch(() => null);
+  const raw = await response.text();
+  let payload: unknown = {};
+  try {
+    payload = raw ? JSON.parse(raw) : {};
+  } catch {
+    payload = { message: "Resposta inválida recebida do Asaas." };
+  }
 
   if (!response.ok) {
-    const errorMsg =
-      payload?.errors?.[0]?.description ||
-      payload?.message ||
-      `Erro na comunicação com Asaas (Status ${response.status})`;
-    throw new AsaasApiError(errorMsg, response.status, payload);
+    throw new AsaasApiError(extractErrorMessage(payload), response.status, payload);
   }
 
   return payload as T;
 }
 
-export async function findOrCreateAsaasCustomer({
-  name,
-  cpfCnpj,
-  email,
-  phone,
-}: {
-  name: string;
-  cpfCnpj: string;
-  email: string;
-  phone?: string;
-}): Promise<AsaasCustomer> {
-  const cleanCpfCnpj = cpfCnpj.replace(/\D/g, "");
+export async function findAsaasCustomer(cpfCnpj: string, externalReference: string) {
+  const query = new URLSearchParams({ cpfCnpj, externalReference, limit: "1" });
+  const result = await asaasRequest<AsaasList<AsaasCustomer>>(`/customers?${query.toString()}`);
+  if (result.data?.[0]) return result.data[0];
 
-  // Buscar cliente existente por CPF/CNPJ
-  const list = await requestAsaas<{ data: AsaasCustomer[] }>(
-    `/customers?cpfCnpj=${encodeURIComponent(cleanCpfCnpj)}`
+  const fallback = new URLSearchParams({ cpfCnpj, limit: "1" });
+  const byDocument = await asaasRequest<AsaasList<AsaasCustomer>>(
+    `/customers?${fallback.toString()}`
   );
+  return byDocument.data?.[0] || null;
+}
 
-  if (list?.data && list.data.length > 0) {
-    return list.data[0];
-  }
-
-  // Criar novo cliente
-  return requestAsaas<AsaasCustomer>("/customers", {
+export async function createAsaasCustomer(payload: Record<string, unknown>) {
+  return asaasRequest<AsaasCustomer>("/customers", {
     method: "POST",
-    body: JSON.stringify({
-      name,
-      cpfCnpj: cleanCpfCnpj,
-      email,
-      phone: phone ? phone.replace(/\D/g, "") : undefined,
-      notificationDisabled: false,
-    }),
+    body: JSON.stringify(payload),
   });
 }
 
-export async function createAsaasPayment({
-  customer,
-  billingType,
-  value,
-  dueDate,
-  description,
-  externalReference,
-  creditCard,
-  creditCardHolderInfo,
-  installmentCount,
-}: {
-  customer: string;
-  billingType: "PIX" | "CREDIT_CARD" | "BOLETO";
-  value: number;
-  dueDate: string;
-  description: string;
-  externalReference: string;
-  creditCard?: {
-    holderName: string;
-    number: string;
-    expiryMonth: string;
-    expiryYear: string;
-    ccv: string;
-  };
-  creditCardHolderInfo?: {
-    name: string;
-    email: string;
-    cpfCnpj: string;
-    postalCode: string;
-    addressNumber: string;
-    phone: string;
-  };
-  installmentCount?: number;
-}): Promise<AsaasPayment> {
-  const body: any = {
-    customer,
-    billingType,
-    value,
-    dueDate,
-    description,
-    externalReference,
-  };
-
-  if (billingType === "CREDIT_CARD" && creditCard) {
-    body.creditCard = creditCard;
-    body.creditCardHolderInfo = creditCardHolderInfo;
-    if (installmentCount && installmentCount > 1) {
-      body.installmentCount = installmentCount;
-      body.installmentValue = Number((value / installmentCount).toFixed(2));
-    }
-  }
-
-  const payment = await requestAsaas<AsaasPayment>("/payments", {
+export async function createAsaasPayment(payload: Record<string, unknown>) {
+  return asaasRequest<AsaasPayment>("/payments", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
+}
 
-  // Se for PIX, buscar o QRCode e Copia e Cola
-  if (billingType === "PIX" && payment.id) {
-    try {
-      const pixData = await requestAsaas<{
-        encodedImage: string;
-        payload: string;
-        expirationDate: string;
-      }>(`/payments/${payment.id}/pixQrCode`);
+export async function tokenizeAsaasCreditCard(payload: Record<string, unknown>) {
+  return asaasRequest<AsaasCardToken>("/creditCard/tokenizeCreditCard", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
 
-      if (pixData) {
-        payment.pixQrCodeUrl = `data:image/png;base64,${pixData.encodedImage}`;
-        payment.pixCopiaECola = pixData.payload;
-      }
-    } catch (err) {
-      console.warn("Não foi possível gerar payload imediato do PIX:", err);
-    }
-  }
+export async function getAsaasPayment(paymentId: string) {
+  return asaasRequest<AsaasPayment>(`/payments/${encodeURIComponent(paymentId)}`);
+}
 
-  return payment;
+export async function refundAsaasPayment(paymentId: string, description: string) {
+  return asaasRequest<AsaasPayment>(`/payments/${encodeURIComponent(paymentId)}/refund`, {
+    method: "POST",
+    body: JSON.stringify({ description }),
+    signal: AbortSignal.timeout(60_000),
+  });
+}
+
+export async function refundAsaasBankSlip(paymentId: string) {
+  return asaasRequest<{ requestUrl: string }>(`/payments/${encodeURIComponent(paymentId)}/bankSlip/refund`, {
+    method: "POST", body: JSON.stringify({}), signal: AbortSignal.timeout(60_000),
+  });
 }

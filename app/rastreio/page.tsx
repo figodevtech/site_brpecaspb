@@ -18,13 +18,16 @@ import {
 import { formatPrice } from "@/lib/utils";
 import { siteConfig } from "@/lib/site-config";
 import { Button } from "@/components/ui/button";
+import type { Order } from "@/lib/types";
+
+type TrackingOrder = Order & { createdat?: string; cliente?: { nomerazaosocial?: string } };
 
 function RastreioContent() {
   const searchParams = useSearchParams();
   const initialCode = searchParams.get("codigo") || "";
 
   const [searchCode, setSearchCode] = useState(initialCode);
-  const [order, setOrder] = useState<any>(null);
+  const [order, setOrder] = useState<TrackingOrder | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -45,8 +48,8 @@ function RastreioContent() {
       }
 
       setOrder(data.order);
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro ao consultar rastreamento.");
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro ao consultar rastreamento.");
     } finally {
       setLoading(false);
     }
@@ -54,7 +57,8 @@ function RastreioContent() {
 
   useEffect(() => {
     if (initialCode) {
-      handleSearch(initialCode);
+      const timer = window.setTimeout(() => { void handleSearch(initialCode); }, 0);
+      return () => window.clearTimeout(timer);
     }
   }, [initialCode]);
 
@@ -84,7 +88,7 @@ function RastreioContent() {
     },
     {
       title: "Despachado / Em Trânsito",
-      desc: isShipped ? `Via ${order.transportadora || "Correios"} (${order.codigo_rastreio})` : "Aguardando envio",
+      desc: isShipped ? `Via ${order?.transportadora || "Correios"} (${order?.codigo_rastreio || "aguardando código"})` : "Aguardando envio",
       completed: isShipped,
       current: isShipped && !isDelivered,
     },
@@ -128,7 +132,7 @@ function RastreioContent() {
             }}
             className="max-w-md mx-auto flex gap-2 pt-2"
           >
-            <input
+            <Input
               type="text"
               required
               value={searchCode}
@@ -303,3 +307,5 @@ export default function RastreioPage() {
     </Suspense>
   );
 }
+
+import { Input } from "@/components/ui/input";

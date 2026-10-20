@@ -49,8 +49,8 @@ export default function FaleConoscoPage() {
       setTelefone("");
       setAssunto("");
       setMensagem("");
-    } catch (err: any) {
-      setErrorMsg(err.message || "Falha ao enviar mensagem.");
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Falha ao enviar mensagem.");
     } finally {
       setLoading(false);
     }
@@ -171,8 +171,8 @@ export default function FaleConoscoPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-700 mb-1">Seu Nome *</label>
-                    <input
+                    <Label className="block text-xs font-bold text-zinc-700 mb-1">Seu Nome *</Label>
+                    <Input
                       type="text"
                       required
                       value={nome}
@@ -183,8 +183,8 @@ export default function FaleConoscoPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-zinc-700 mb-1">Seu E-mail *</label>
-                    <input
+                    <Label className="block text-xs font-bold text-zinc-700 mb-1">Seu E-mail *</Label>
+                    <Input
                       type="email"
                       required
                       value={email}
@@ -197,10 +197,10 @@ export default function FaleConoscoPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-700 mb-1">
+                    <Label className="block text-xs font-bold text-zinc-700 mb-1">
                       Telefone / Celular
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       type="tel"
                       value={telefone}
                       onChange={(e) => setTelefone(e.target.value)}
@@ -210,10 +210,10 @@ export default function FaleConoscoPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-zinc-700 mb-1">
+                    <Label className="block text-xs font-bold text-zinc-700 mb-1">
                       Assunto *
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       type="text"
                       required
                       value={assunto}
@@ -225,10 +225,10 @@ export default function FaleConoscoPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-700 mb-1">
+                  <Label className="block text-xs font-bold text-zinc-700 mb-1">
                     Sua Mensagem *
-                  </label>
-                  <textarea
+                  </Label>
+                  <Textarea
                     required
                     rows={5}
                     value={mensagem}
@@ -254,3 +254,7 @@ export default function FaleConoscoPage() {
     </div>
   );
 }
+
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";

@@ -1,3 +1,4 @@
+import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -6,6 +7,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await createClient();
+    const { data: { user } } = await auth.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Faça login para consultar seu pedido." }, { status: 401 });
+    const { data: customer } = await supabaseAdmin.from("cliente").select("id").eq("user_id", user.id).maybeSingle();
+    if (!customer) return NextResponse.json({ error: "Cadastro não encontrado." }, { status: 404 });
     const { id } = await params;
     const orderId = parseInt(id, 10);
 
@@ -22,7 +28,6 @@ export async function GET(
         status_entrega,
         valortotal,
         sub_total,
-        valor_frete,
         datavenda,
         forma_pagamento,
         endereco_entrega_snapshot,
@@ -39,7 +44,7 @@ export async function GET(
           telefone
         )
       `)
-      .eq("id", orderId)
+      .eq("id", orderId).eq("clienteid", customer.id)
       .maybeSingle();
 
     if (orderError || !order) {
@@ -75,10 +80,10 @@ export async function GET(
         itens: items || [],
       },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Erro ao consultar pedido:", err);
     return NextResponse.json(
-      { error: err.message || "Erro interno ao consultar pedido." },
+      { error: err instanceof Error ? err.message : "Erro interno ao consultar pedido." },
       { status: 500 }
     );
   }

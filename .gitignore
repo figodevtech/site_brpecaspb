@@ -9,6 +9,7 @@
 
 # next.js
 /.next/
+/.next-verify/
 /out/
 
 # production
@@ -32,3 +33,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Secrets: examples remain versioned
+.env
+.env.*
+!.env.example
+!.env.migrations.example

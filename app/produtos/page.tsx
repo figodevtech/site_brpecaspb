@@ -5,6 +5,8 @@ import { getProducts, ProductFilters } from "@/lib/catalog/products";
 import { getCategories } from "@/lib/catalog/categories";
 import { getVehicleFilterOptions } from "@/lib/catalog/vehicles";
 import { Filter, SlidersHorizontal, Car, X, Check } from "lucide-react";
+import { CatalogSort } from "@/components/product/CatalogSort";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
 interface ProdutosPageProps {
   searchParams: Promise<{
@@ -17,11 +19,14 @@ interface ProdutosPageProps {
     sort?: "price_asc" | "price_desc" | "recent" | "name";
     min?: string;
     max?: string;
+    page?: string;
   }>;
 }
 
 export default async function ProdutosPage({ searchParams }: ProdutosPageProps) {
   const resolvedParams = await searchParams;
+  const page = Math.max(1, Math.floor(Number(resolvedParams.page) || 1));
+  const pageSize = 48;
 
   const categoryId = resolvedParams.categoria ? parseInt(resolvedParams.categoria, 10) : undefined;
   const anoNum = resolvedParams.ano ? parseInt(resolvedParams.ano, 10) : undefined;
@@ -38,7 +43,8 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
     sort: resolvedParams.sort || "recent",
     minPrice,
     maxPrice,
-    limit: 48,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
   };
 
   const [{ products, total }, categories, vehicleOptions] = await Promise.all([
@@ -46,6 +52,12 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
     getCategories(),
     getVehicleFilterOptions(),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const pageUrl = (number: number) => {
+    const params = new URLSearchParams(Object.entries(resolvedParams).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+    params.set("page", String(number));
+    return `/produtos?${params}`;
+  };
 
   return (
     <div className="bg-[#F8F9FA] min-h-screen py-8">
@@ -69,6 +81,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
                 <strong className="text-zinc-900">{total}</strong> produtos disponíveis
               </p>
             </div>
+            <CatalogSort value={resolvedParams.sort || "recent"} />
           </div>
         </div>
 
@@ -219,6 +232,14 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
             )}
           </main>
         </div>
+        {totalPages > 1 && <Pagination className="mt-8" aria-label="Páginas do catálogo">
+          <PaginationContent>
+            {page > 1 && <PaginationItem><PaginationPrevious href={pageUrl(page - 1)} aria-label="Página anterior" /></PaginationItem>}
+            {Array.from({ length: totalPages }, (_, index) => index + 1).filter(number => Math.abs(number - page) <= 2 || number === 1 || number === totalPages).map(number =>
+              <PaginationItem key={number}><PaginationLink href={pageUrl(number)} isActive={page === number}>{number}</PaginationLink></PaginationItem>)}
+            {page < totalPages && <PaginationItem><PaginationNext href={pageUrl(page + 1)} aria-label="Próxima página" /></PaginationItem>}
+          </PaginationContent>
+        </Pagination>}
       </div>
     </div>
   );

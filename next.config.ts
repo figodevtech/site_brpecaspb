@@ -9,6 +9,7 @@ const appVersion = (
 ).slice(0, 12);
 
 const nextConfig: NextConfig = {
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   turbopack: {
     root: __dirname,
   },
@@ -19,10 +20,6 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 2678400,
     formats: ["image/webp", "image/avif"],
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "ufomohkhyyekflykqejc.supabase.co",
-      },
       {
         protocol: "https",
         hostname: "*.supabase.co",

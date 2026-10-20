@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Car, Search, CheckCircle2, RotateCcw, ShieldCheck, Wrench, Truck } from "lucide-react";
 import { VehicleOption } from "@/lib/catalog/vehicles";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface VehicleSelectorWidgetProps {
   vehicleOptions: VehicleOption[];
@@ -82,14 +83,14 @@ export function VehicleSelectorWidget({ vehicleOptions }: VehicleSelectorWidgetP
             </div>
 
             {(selectedMontadora || selectedModelo || selectedAno) && (
-              <button
+              <Button variant="ghost" size="sm"
                 type="button"
                 onClick={handleReset}
                 className="text-xs text-zinc-500 hover:text-[#FF6B00] font-bold flex items-center gap-1.5 transition-colors self-start sm:self-auto py-1 px-3 rounded-lg hover:bg-orange-50 border border-zinc-200"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Limpar Filtros</span>
-              </button>
+              </Button>
             )}
           </div>
 
@@ -97,81 +98,80 @@ export function VehicleSelectorWidget({ vehicleOptions }: VehicleSelectorWidgetP
           <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Montadora */}
             <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-zinc-800 mb-1.5">
+              <Label className="block text-[11px] font-black uppercase tracking-wider text-zinc-800 mb-1.5">
                 <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#FF6B00] text-white text-[10px] font-black mr-1.5">
                   1
                 </span>
                 Montadora / Marca
-              </label>
-              <select
+              </Label>
+              <Select
                 value={selectedMontadora}
-                onChange={(e) => {
-                  setSelectedMontadora(e.target.value);
+                onValueChange={(value) => {
+                  setSelectedMontadora(value);
                   setSelectedModelo("");
                   setSelectedAno("");
                 }}
-                className="w-full bg-zinc-50 hover:bg-zinc-100/80 focus:bg-white text-zinc-900 text-xs font-bold px-3.5 py-3 rounded-xl border border-zinc-300 focus:border-[#FF6B00] focus:ring-2 focus:ring-orange-500/20 transition-all outline-none cursor-pointer"
               >
-                <option value="">Selecione a Marca...</option>
+                <SelectTrigger aria-label="Montadora / Marca" className="w-full bg-zinc-50"><SelectValue placeholder="Selecione a marca" /></SelectTrigger>
+                <SelectContent>
                 {vehicleOptions.map((v) => (
-                  <option key={v.montadora} value={v.montadora}>
+                  <SelectItem key={v.montadora} value={v.montadora}>
                     {v.montadora}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Modelo */}
             <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-zinc-800 mb-1.5">
+              <Label className="block text-[11px] font-black uppercase tracking-wider text-zinc-800 mb-1.5">
                 <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#FF6B00] text-white text-[10px] font-black mr-1.5">
                   2
                 </span>
                 Modelo do Veículo
-              </label>
-              <select
+              </Label>
+              <Select
                 value={selectedModelo}
                 disabled={!selectedMontadora}
-                onChange={(e) => {
-                  setSelectedModelo(e.target.value);
+                onValueChange={(value) => {
+                  setSelectedModelo(value);
                   setSelectedAno("");
                 }}
-                className="w-full bg-zinc-50 hover:bg-zinc-100/80 focus:bg-white text-zinc-900 text-xs font-bold px-3.5 py-3 rounded-xl border border-zinc-300 focus:border-[#FF6B00] focus:ring-2 focus:ring-orange-500/20 transition-all outline-none disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer"
               >
-                <option value="">
-                  {selectedMontadora ? "Selecione o Modelo..." : "Escolha a marca primeiro"}
-                </option>
+                <SelectTrigger aria-label="Modelo do veículo" className="w-full bg-zinc-50"><SelectValue placeholder={selectedMontadora ? "Selecione o modelo" : "Escolha a marca primeiro"} /></SelectTrigger>
+                <SelectContent>
                 {availableModelos.map((m) => (
-                  <option key={m.nome} value={m.nome}>
+                  <SelectItem key={m.nome} value={m.nome}>
                     {m.nome}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Ano */}
             <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-zinc-800 mb-1.5">
+              <Label className="block text-[11px] font-black uppercase tracking-wider text-zinc-800 mb-1.5">
                 <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#FF6B00] text-white text-[10px] font-black mr-1.5">
                   3
                 </span>
                 Ano de Fabricação
-              </label>
-              <select
+              </Label>
+              <Select
                 value={selectedAno}
                 disabled={!selectedModelo}
-                onChange={(e) => setSelectedAno(e.target.value)}
-                className="w-full bg-zinc-50 hover:bg-zinc-100/80 focus:bg-white text-zinc-900 text-xs font-bold px-3.5 py-3 rounded-xl border border-zinc-300 focus:border-[#FF6B00] focus:ring-2 focus:ring-orange-500/20 transition-all outline-none disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer"
+                onValueChange={setSelectedAno}
               >
-                <option value="">
-                  {selectedModelo ? "Selecione o Ano..." : "Escolha o modelo"}
-                </option>
+                <SelectTrigger aria-label="Ano de fabricação" className="w-full bg-zinc-50"><SelectValue placeholder={selectedModelo ? "Selecione o ano" : "Escolha o modelo"} /></SelectTrigger>
+                <SelectContent>
                 {availableAnos.map((ano) => (
-                  <option key={ano} value={ano}>
+                  <SelectItem key={ano} value={String(ano)}>
                     {ano}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Botão de Busca */}
@@ -206,3 +206,5 @@ export function VehicleSelectorWidget({ vehicleOptions }: VehicleSelectorWidgetP
     </section>
   );
 }
+
+import { Label } from "@/components/ui/label";

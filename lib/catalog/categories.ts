@@ -1,8 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { ProductCategory } from "@/lib/types";
 import { slugify, formatCategoryName } from "@/lib/utils";
+import { cache } from "react";
 
-export async function getCategories(): Promise<ProductCategory[]> {
+export const getCategories = cache(async (): Promise<ProductCategory[]> => {
   try {
     const { data, error } = await supabaseAdmin
       .from("produtogrupo")
@@ -14,12 +15,6 @@ export async function getCategories(): Promise<ProductCategory[]> {
       console.error("Erro ao buscar categorias:", error);
       return [];
     }
-
-    // Obter contagem de produtos por categoria
-    const { data: countData } = await supabaseAdmin
-      .from("produto")
-      .select("grupo_produto_id, count", { count: "exact" })
-      .eq("is_deleted", false);
 
     // Mapear imagens ilustrativas das categorias
     const categoryImages: Record<string, string> = {
@@ -46,7 +41,7 @@ export async function getCategories(): Promise<ProductCategory[]> {
     console.error("Erro inesperado em getCategories:", err);
     return [];
   }
-}
+});
 
 export async function getCategoryBySlug(slug: string): Promise<ProductCategory | null> {
   const categories = await getCategories();

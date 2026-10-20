@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0F172A" />
     <meta name="color-scheme" content="light" />
     <meta name="robots" content="noindex" />
-    <title>Sem conexão | Demir Diesel</title>
+    <title>Sem conexão | BR Peças PB</title>
     <link rel="icon" href="/icons/icon-192.png" />
     <style>
       :root {
@@ -84,7 +84,7 @@
   </head>
   <body>
     <main class="card" role="main">
-      <img class="logo" src="/brand/demir-logo.avif" alt="Demir Diesel" width="256" height="99" />
+      <img class="logo" src="/brand/logo_oficial.jpg" alt="BR Peças PB" width="256" height="99" />
       <div class="icon" aria-hidden="true">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 20h.01" /><path d="M8.5 16.429a5 5 0 0 1 7 0" /><path d="M5 12.859a10 10 0 0 1 5.17-2.69" />
@@ -135,7 +135,7 @@
         // Lista páginas públicas já visitadas que estão disponíveis offline.
         if (!("caches" in window)) return;
         caches.keys().then(function (keys) {
-          var pageCache = keys.filter(function (key) { return key.indexOf("demir-pages-") === 0; })[0];
+          var pageCache = keys.filter(function (key) { return key.indexOf("brpecaspb-pages-") === 0; })[0];
           if (!pageCache) return;
           return caches.open(pageCache).then(function (cache) {
             return cache.keys().then(function (requests) {
@@ -179,7 +179,7 @@
           var path = url.pathname.replace(/\/$/, "") || "/";
           if (labels[path]) return labels[path];
           var match = /<title[^>]*>([^<]*)<\/title>/i.exec(html);
-          return match ? decode(match[1].replace(/\s*\|\s*Demir Diesel.*$/i, "")) : path;
+          return match ? decode(match[1].replace(/\s*\|\s*BR Peças PB.*$/i, "")) : path;
         }
 
         function decode(text) {

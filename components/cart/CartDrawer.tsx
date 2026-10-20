@@ -7,41 +7,34 @@ import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck } from "lu
 import { useCartContext } from "@/components/providers/CartProvider";
 import { formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 
 export function CartDrawer() {
   const { items, isOpen, setIsOpen, updateQuantity, removeItem, subtotal, totalItems } =
     useCartContext();
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
-        onClick={() => setIsOpen(false)}
-      />
-
-      {/* Drawer Panel */}
-      <div className="relative w-full max-w-md bg-white text-zinc-900 h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-300">
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetContent className="w-full gap-0 p-0 sm:max-w-md bg-white text-zinc-900 [&>button]:hidden">
+        <SheetDescription className="sr-only">Confira os produtos, ajuste as quantidades e continue para o checkout.</SheetDescription>
         {/* Header */}
         <div className="p-4 bg-[#0B0D12] text-white flex items-center justify-between border-b border-zinc-800">
           <div className="flex items-center gap-2">
             <ShoppingBag className="w-5 h-5 text-[#FF6B00]" />
-            <h3 className="font-bold text-base">Seu Carrinho ({totalItems})</h3>
+            <SheetTitle className="font-bold text-base text-white">Seu Carrinho ({totalItems})</SheetTitle>
           </div>
-          <button
-            onClick={() => setIsOpen(false)}
+          <Button type="button" variant="ghost" size="sm"
+            onClick={() => setIsOpen(false)} aria-label="Fechar carrinho"
             className="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Banner de Aviso de Estoque Real */}
         <div className="bg-orange-50 border-b border-orange-100 px-4 py-2 text-xs text-orange-950 flex items-center gap-1.5 font-medium">
           <ShieldCheck className="w-4 h-4 text-[#FF6B00] shrink-0" />
-          <span>Peças reservadas temporariamente durante o pedido.</span>
+          <span>Preço e disponibilidade são confirmados no checkout.</span>
         </div>
 
         {/* Items List */}
@@ -95,7 +88,7 @@ export function CartDrawer() {
                   </div>
 
                   {/* Informações */}
-                  <div className="flex-1 flex flex-col justify-between">
+                  <div className="min-w-0 flex-1 flex flex-col justify-between">
                     <div>
                       <h4 className="text-xs font-bold text-zinc-900 line-clamp-2 leading-snug">
                         {item.produto.titulo}
@@ -107,25 +100,25 @@ export function CartDrawer() {
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-zinc-100">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mt-2 pt-2 border-t border-zinc-100">
                       {/* Quantidade */}
                       <div className="flex items-center border border-zinc-300 rounded-md">
-                        <button
+                        <Button type="button" variant="ghost" size="sm"
                           onClick={() => updateQuantity(item.produto.id, item.quantidade - 1)}
                           className="px-2 py-1 text-zinc-600 hover:bg-zinc-100"
                         >
                           <Minus className="w-3 h-3" />
-                        </button>
+                        </Button>
                         <span className="px-2 text-xs font-bold text-zinc-900">
                           {item.quantidade}
                         </span>
-                        <button
+                        <Button type="button" variant="ghost" size="sm"
                           onClick={() => updateQuantity(item.produto.id, item.quantidade + 1)}
                           disabled={item.quantidade >= item.produto.estoque}
                           className="px-2 py-1 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
                         >
                           <Plus className="w-3 h-3" />
-                        </button>
+                        </Button>
                       </div>
 
                       {/* Preço e Excluir */}
@@ -133,13 +126,13 @@ export function CartDrawer() {
                         <span className="font-extrabold text-sm text-zinc-900">
                           {formatPrice(price * item.quantidade)}
                         </span>
-                        <button
+                        <Button type="button" variant="ghost" size="sm"
                           onClick={() => removeItem(item.produto.id)}
                           className="text-zinc-400 hover:text-red-500 transition-colors p-1"
                           title="Remover"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -185,7 +178,8 @@ export function CartDrawer() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }
+
