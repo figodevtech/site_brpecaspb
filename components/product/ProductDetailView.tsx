@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
+import { ProductImageCarousel } from "./ProductImageCarousel";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -33,16 +33,6 @@ interface ProductDetailViewProps {
 export function ProductDetailView({ product }: ProductDetailViewProps) {
   const { addItem } = useCartContext();
   const { isFavorite, toggleFavorite } = useWishlistContext();
-
-  // Imagens da galeria
-  const allImages =
-    product.imagens && product.imagens.length > 0
-      ? product.imagens.map((img) => img.url)
-      : product.imgUrl
-      ? [product.imgUrl]
-      : [];
-
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   // Cálculo de Frete
   const [cepInput, setCepInput] = useState("");
@@ -107,21 +97,8 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
             {/* Coluna da Galeria (5 colunas) */}
             <div className="lg:col-span-6 space-y-4">
-              {/* Foto Principal com Zoom (Proporção mais fina na altura 16:10) */}
-              <div className="relative aspect-16/10 w-full rounded-2xl overflow-hidden bg-white border border-zinc-200 shadow-inner group">
-                {allImages.length > 0 ? (
-                  <Image
-                    src={allImages[activeImageIndex]}
-                    alt={product.titulo}
-                    fill
-                    priority
-                    className="object-contain p-4 group-hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-zinc-400 text-sm">
-                    Fotografia em processamento
-                  </div>
-                )}
+              <div className="relative rounded-2xl bg-white border border-zinc-200 shadow-inner">
+                <ProductImageCarousel key={product.id} images={[product.imgUrl || "", ...(product.imagens || []).map(image => image.url)]} title={product.titulo} thumbnails />
 
                 {/* Badges de Conservação */}
                 <div className="absolute top-3 left-3 flex flex-col gap-1.5 items-start">
@@ -151,30 +128,6 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
                   <Heart className={`w-5 h-5 ${favorited ? "fill-white" : ""}`} />
                 </Button>
               </div>
-
-              {/* Thumbnails da Galeria */}
-              {allImages.length > 1 && (
-                <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
-                  {allImages.map((imgUrl, idx) => (
-                    <Button type="button" variant="ghost" size="sm"
-                      key={idx}
-                      onClick={() => setActiveImageIndex(idx)}
-                      className={`relative w-20 h-20 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
-                        activeImageIndex === idx
-                          ? "border-[#FF6B00] shadow-md scale-95"
-                          : "border-zinc-200 hover:border-zinc-400"
-                      }`}
-                    >
-                      <Image
-                        src={imgUrl}
-                        alt={`${product.titulo} - Foto ${idx + 1}`}
-                        fill
-                        className="object-contain p-1"
-                      />
-                    </Button>
-                  ))}
-                </div>
-              )}
 
               {/* Garantia e Procedência Box */}
               <div className="p-4 rounded-xl bg-orange-50/60 border border-orange-200/80 flex items-start gap-3">

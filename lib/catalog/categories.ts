@@ -16,25 +16,34 @@ export const getCategories = cache(async (): Promise<ProductCategory[]> => {
       return [];
     }
 
-    // Mapear imagens ilustrativas das categorias
-    const categoryImages: Record<string, string> = {
-      "painel-de-instrumentos": "/images/categories/painel.png",
-      "modulos": "/images/categories/modulos-v2.webp",
-      "volantes": "/images/categories/volantes.jpg",
-      "freios": "/images/categories/freios.jpg",
-      "motor": "/images/categories/motor.png",
-      "motor-de-partida": "/images/categories/motor-de-partida-v3.webp",
-      "alternadores": "/images/categories/alternador-v2.webp",
-    };
+    const catalog = new Map<number, { count: number; image: string | null }>();
+    for (let offset = 0; ; offset += 1000) {
+      const { data: products, error: productsError } = await supabaseAdmin
+        .from("produto")
+        .select("grupo_produto_id, imgUrl")
+        .eq("visible", true)
+        .eq("is_deleted", false)
+        .order("id", { ascending: false })
+        .range(offset, offset + 999);
+      if (productsError) throw productsError;
+      for (const product of products || []) {
+        if (!product.grupo_produto_id) continue;
+        const group = catalog.get(product.grupo_produto_id) || { count: 0, image: null };
+        group.count += 1;
+        if (!group.image && product.imgUrl) group.image = product.imgUrl;
+        catalog.set(product.grupo_produto_id, group);
+      }
+      if (!products || products.length < 1000) break;
+    }
 
-    return data.map((cat) => {
+    return data.filter(cat => catalog.has(cat.id)).map((cat) => {
       const slug = slugify(cat.nome);
       return {
         id: cat.id,
         nome: formatCategoryName(cat.nome),
         descricao: cat.descricao,
         slug,
-        imagem: categoryImages[slug] || "/images/categories/ferramentas.png",
+        imagem: catalog.get(cat.id)?.image || null,
       };
     });
   } catch (err) {

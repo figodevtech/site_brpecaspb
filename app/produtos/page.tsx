@@ -1,10 +1,11 @@
 import React from "react";
 import Link from "next/link";
 import { ProductCard } from "@/components/product/ProductCard";
-import { getProducts, ProductFilters } from "@/lib/catalog/products";
+import { getProducts, getCatalogFilterOptions, ProductFilters } from "@/lib/catalog/products";
 import { getCategories } from "@/lib/catalog/categories";
 import { getVehicleFilterOptions } from "@/lib/catalog/vehicles";
-import { Filter, SlidersHorizontal, Car, X, Check } from "lucide-react";
+import { Filter } from "lucide-react";
+import { CatalogFilters } from "@/components/product/CatalogFilters";
 import { CatalogSort } from "@/components/product/CatalogSort";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
@@ -13,6 +14,8 @@ interface ProdutosPageProps {
     q?: string;
     categoria?: string;
     condicao?: "NOVO" | "USADO" | "RECONDICIONADO" | "TODOS";
+    fabricante?: string;
+    estoque?: string;
     montadora?: string;
     modelo?: string;
     ano?: string;
@@ -35,6 +38,8 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
 
   const filters: ProductFilters = {
     query: resolvedParams.q,
+    manufacturer: resolvedParams.fabricante,
+    inStockOnly: resolvedParams.estoque === "disponivel",
     categoryId: isNaN(categoryId as number) ? undefined : categoryId,
     condition: resolvedParams.condicao,
     montadora: resolvedParams.montadora,
@@ -47,10 +52,11 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
     offset: (page - 1) * pageSize,
   };
 
-  const [{ products, total }, categories, vehicleOptions] = await Promise.all([
+  const [{ products, total }, categories, vehicleOptions, filterOptions] = await Promise.all([
     getProducts(filters),
     getCategories(),
     getVehicleFilterOptions(),
+    getCatalogFilterOptions(),
   ]);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const pageUrl = (number: number) => {
@@ -81,130 +87,20 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
                 <strong className="text-zinc-900">{total}</strong> produtos disponíveis
               </p>
             </div>
-            <CatalogSort value={resolvedParams.sort || "recent"} />
+            <div className="flex items-center gap-2">
+              <CatalogFilters mobile categories={categories} vehicles={vehicleOptions} {...filterOptions} total={total} />
+              <CatalogSort value={resolvedParams.sort || "recent"} />
+            </div>
           </div>
         </div>
 
-        {/* Layout Grid: Filtros Laterais + Grid de Produtos */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar de Filtros */}
-          <aside className="lg:col-span-1 space-y-6">
-            <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm space-y-6">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
-                <span className="text-sm font-black text-zinc-900 flex items-center gap-2">
-                  <SlidersHorizontal className="w-4 h-4 text-[#FF6B00]" />
-                  Filtros Avançados
-                </span>
-                <Link
-                  href="/produtos"
-                  className="text-[11px] font-semibold text-zinc-500 hover:text-[#FF6B00]"
-                >
-                  Limpar Todos
-                </Link>
-              </div>
-
-              {/* Filtro por Condição (Nova vs Seminova) */}
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 mb-2.5">
-                  Estado da Peça
-                </h4>
-                <div className="flex flex-col gap-1.5 text-xs">
-                  <Link
-                    href={`/produtos?${new URLSearchParams({ ...resolvedParams, condicao: "TODOS" }).toString()}`}
-                    className={`px-3 py-2 rounded-lg font-medium transition-colors ${
-                      !resolvedParams.condicao || resolvedParams.condicao === "TODOS"
-                        ? "bg-[#FF6B00] text-white font-bold"
-                        : "bg-zinc-50 hover:bg-zinc-100 text-zinc-700"
-                    }`}
-                  >
-                    Todas as Peças
-                  </Link>
-                  <Link
-                    href={`/produtos?${new URLSearchParams({ ...resolvedParams, condicao: "USADO" }).toString()}`}
-                    className={`px-3 py-2 rounded-lg font-medium flex items-center justify-between transition-colors ${
-                      resolvedParams.condicao === "USADO"
-                        ? "bg-[#0B0D12] text-[#FF6B00] font-bold border border-orange-500/50"
-                        : "bg-zinc-50 hover:bg-zinc-100 text-zinc-700"
-                    }`}
-                  >
-                    <span>Peças Seminovas</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-orange-100 text-orange-950 font-black">
-                      Garantia
-                    </span>
-                  </Link>
-                  <Link
-                    href={`/produtos?${new URLSearchParams({ ...resolvedParams, condicao: "NOVO" }).toString()}`}
-                    className={`px-3 py-2 rounded-lg font-medium transition-colors ${
-                      resolvedParams.condicao === "NOVO"
-                        ? "bg-emerald-700 text-white font-bold"
-                        : "bg-zinc-50 hover:bg-zinc-100 text-zinc-700"
-                    }`}
-                  >
-                    Peças Novas (Originais)
-                  </Link>
-                </div>
-              </div>
-
-              {/* Categorias */}
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 mb-2.5">
-                  Categorias
-                </h4>
-                <div className="space-y-1 max-h-56 overflow-y-auto pr-1 text-xs">
-                  {categories.map((c) => {
-                    const active = resolvedParams.categoria === String(c.id);
-                    return (
-                      <Link
-                        key={c.id}
-                        href={`/produtos?${new URLSearchParams({ ...resolvedParams, categoria: String(c.id) }).toString()}`}
-                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-colors ${
-                          active
-                            ? "bg-orange-50 text-[#FF6B00] font-bold"
-                            : "hover:bg-zinc-50 text-zinc-600"
-                        }`}
-                      >
-                        <span>{c.nome}</span>
-                        {active && <Check className="w-3.5 h-3.5 text-[#FF6B00]" />}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Filtro por Montadora de Veículo */}
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 mb-2.5 flex items-center gap-1.5">
-                  <Car className="w-3.5 h-3.5 text-[#FF6B00]" />
-                  Marca do Veículo
-                </h4>
-                <div className="space-y-1 text-xs max-h-48 overflow-y-auto pr-1">
-                  {vehicleOptions.map((v) => {
-                    const active = resolvedParams.montadora === v.montadora;
-                    return (
-                      <Link
-                        key={v.montadora}
-                        href={`/produtos?${new URLSearchParams({
-                          ...resolvedParams,
-                          montadora: v.montadora,
-                        }).toString()}`}
-                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-colors ${
-                          active
-                            ? "bg-orange-50 text-[#FF6B00] font-bold"
-                            : "hover:bg-zinc-50 text-zinc-600"
-                        }`}
-                      >
-                        <span>{v.montadora}</span>
-                        {active && <Check className="w-3.5 h-3.5 text-[#FF6B00]" />}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-8 items-start">
+          <aside className="hidden lg:block sticky top-40 max-h-[calc(100dvh-11rem)] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-5">
+            <CatalogFilters categories={categories} vehicles={vehicleOptions} {...filterOptions} total={total} />
           </aside>
 
           {/* Grid de Produtos */}
-          <main className="lg:col-span-3">
+          <main className="min-w-0">
             {products.length === 0 ? (
               <div className="bg-white rounded-2xl p-12 text-center border border-zinc-200">
                 <div className="w-16 h-16 rounded-full bg-orange-50 text-[#FF6B00] flex items-center justify-center mx-auto mb-4">

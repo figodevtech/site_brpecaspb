@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
+import { ProductImageCarousel } from "./ProductImageCarousel";
 import Link from "next/link";
 import { ShoppingCart, Heart, ShieldCheck, Check, AlertTriangle, MessageCircle, Eye } from "lucide-react";
 import { Product } from "@/lib/types";
@@ -34,21 +34,7 @@ export function ProductCard({ product }: ProductCardProps) {
     <div className="group relative flex flex-col bg-white rounded-xl border border-zinc-200 hover:border-zinc-300 hover:shadow-xl transition-all duration-300 overflow-hidden">
       {/* Imagem do Produto (Proporção mais fina na altura 16:10 com encaixe perfeito) */}
       <div className="relative aspect-16/10 w-full bg-white overflow-hidden border-b border-zinc-100 flex items-center justify-center">
-        <Link href={`/produto/${product.id}`} className="relative block w-full h-full">
-          {product.imgUrl ? (
-            <Image
-              src={product.imgUrl}
-              alt={product.titulo}
-              fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-              className="object-contain p-2.5 group-hover:scale-105 transition-transform duration-500"
-            />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-zinc-400 text-xs">
-              <span>Imagem indisponível</span>
-            </div>
-          )}
-        </Link>
+        <ProductImageCarousel key={product.id} images={[product.imgUrl || "", ...(product.imagens || []).map(image => image.url)]} title={product.titulo} href={`/produto/${product.id}`} />
 
         {/* Badges no Topo */}
         <div className="absolute top-2 left-2 z-10 pointer-events-none flex flex-col gap-1 items-start">

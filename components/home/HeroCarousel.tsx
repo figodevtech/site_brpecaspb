@@ -23,7 +23,7 @@ const banners = [
     title: "Peças Automotivas Originais",
     highlight: "Novas & Seminovas com Garantia Real",
     description:
-      "Mais de 40 categorias com estoque real verificado para pronta-entrega. Painéis digitais, módulos, motores, alternadores e freios.",
+      "Consulte as categorias e as peças disponíveis no catálogo, com fotos e informações dos produtos.",
     ctaText: "Explorar Catálogo",
     ctaLink: "/produtos",
     secondaryText: "Peças Seminovas",

@@ -1,6 +1,31 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Product, ProductImage, VehicleCompatibility } from "@/lib/types";
 
+export async function getCatalogFilterOptions() {
+  const brands = new Set<string>();
+  let min = Infinity;
+  let max = 0;
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabaseAdmin.from("produto")
+      .select("fabricante, precovenda").eq("is_deleted", false).eq("visible", true)
+      .order("id").range(offset, offset + 999);
+    if (error) {
+      console.error("Erro ao carregar opções do catálogo:", error);
+      break;
+    }
+    for (const product of data || []) {
+      if (product.fabricante?.trim()) brands.add(product.fabricante.trim());
+      const price = Number(product.precovenda);
+      if (Number.isFinite(price) && price > 0) {
+        min = Math.min(min, price);
+        max = Math.max(max, price);
+      }
+    }
+    if (!data || data.length < 1000) break;
+  }
+  return { brands: [...brands].sort((a, b) => a.localeCompare(b, "pt-BR")), priceBounds: { min: Number.isFinite(min) ? Math.floor(min) : 0, max: Math.ceil(max) } };
+}
+
 export interface ProductFilters {
   query?: string;
   categoryId?: number;

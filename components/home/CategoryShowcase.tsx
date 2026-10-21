@@ -16,6 +16,7 @@ interface CategoryShowcaseProps {
 }
 
 export function CategoryShowcase({ categories }: CategoryShowcaseProps) {
+  if (categories.length === 0) return null;
   return (
     <section className="bg-zinc-50 py-12 sm:py-14" aria-labelledby="categories-heading">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -54,13 +55,13 @@ export function CategoryShowcase({ categories }: CategoryShowcaseProps) {
                   className="group flex flex-col items-center gap-4 rounded-lg px-1 py-2 text-center outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00] focus-visible:ring-inset"
                 >
                   <div className="relative size-24 shrink-0 overflow-hidden rounded-full border border-zinc-200/70 bg-white shadow-sm transition-all duration-300 group-hover:border-[#FF6B00] group-hover:shadow-md sm:size-28 lg:size-32">
-                    <Image
-                      src={cat.imagem || "/images/categories/ferramentas.png"}
+                    {cat.imagem ? <Image
+                      src={cat.imagem}
                       alt={cat.nome}
                       fill
                       sizes="(min-width: 1024px) 128px, (min-width: 640px) 112px, 96px"
                       className="object-contain p-4 transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none"
-                    />
+                    /> : <Layers aria-hidden="true" className="size-10 text-zinc-300 absolute inset-0 m-auto" />}
                   </div>
                   <h3 className="min-h-10 text-xs font-semibold leading-5 text-zinc-800 transition-colors group-hover:text-[#FF6B00] sm:text-sm">
                     {cat.nome}

@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const root = new URL('../', import.meta.url);
 
 // Run the actual route handlers with isolated environment and service doubles.
-function route(file, { env = {}, admin, user = null, revalidatePath = () => {} } = {}) {
+function route(file, { env = {}, admin, user = null, revalidatePath = () => {}, fetchMock } = {}) {
   const exports = {};
   const code = ts.transpileModule(fs.readFileSync(new URL(file, root), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
@@ -20,7 +20,8 @@ function route(file, { env = {}, admin, user = null, revalidatePath = () => {} }
     require(name) {
       if (name === 'next/server') return { NextResponse: { json: (body, init) => Response.json(body, init) } };
       if (name === 'next/cache') return { revalidatePath };
-      if (name === '@/lib/supabase/admin') return { supabaseAdmin: admin ?? new Proxy({}, { get() { throw new Error('Unexpected database access'); } }) };
+      if (name === '@/lib/supabase/admin' || name === '@/lib/supabaseAdmin') return { supabaseAdmin: admin ?? new Proxy({}, { get() { throw new Error('Unexpected database access'); } }) };
+      if (name === '@/lib/integrations/storefront-http') return { storefrontFetch: fetchMock };
       if (name === '@/lib/supabase/server') return { createClient: async () => ({ auth: { getUser: async () => ({ data: { user } }) } }) };
       if (name === '@/lib/auth-utils') return route('lib/auth-utils.ts');
       if (name === '@/lib/asaas') return new Proxy({}, { get() { return () => { throw new Error('Unexpected Asaas request'); }; } });
@@ -75,6 +76,47 @@ test('catalog validates authenticated payload and writes only the storefront con
   assert.equal(product.internalCost, undefined);
   assert.ok(writes.some(({ table }) => table === 'produto_imagem'));
   assert.ok(invalidations.includes('/produtos'));
+});
+
+test('a category can be hidden without sending or modifying products', async () => {
+  for (const file of ['app/api/integrations/erp/catalog/route.ts', '../site_demirdiesel/app/api/integrations/erp/catalog/route.ts']) {
+  const writes = [];
+  const handlers = route(file, {
+    env: { ERP_CATALOG_SYNC_SECRET: 'br-catalog' },
+    admin: { from(table) {
+      assert.equal(table, 'produtogrupo', 'category-only sync must not modify products or images');
+      return { async upsert(rows) { writes.push(...rows); return { error: null }; } };
+    } },
+  });
+  const response = await handlers.POST(request({ categories: [{ id: 10, name: 'Motor', active: false }] }, { authorization: 'Bearer br-catalog' }));
+  assert.equal(response.status, 200);
+  assert.equal(writes[0].ativo, false);
+  assert.equal((await response.json()).products, 0);
+  }
+});
+
+test('ERP synchronizes category visibility even when the product queue is empty', async () => {
+  let payload;
+  const admin = {
+    async rpc(name) { assert.equal(name, 'fn_reservar_sincronizacao_site'); return { data: [], error: null }; },
+    from(table) {
+      const data = table === 'produtogrupo' ? [
+        { id: 1, nome: 'Oculta', ativo: true, exibirSite: false },
+        { id: 2, nome: 'Exibida', ativo: false, exibirSite: true },
+      ] : [];
+      return { select() { return this; }, eq() { return this; }, in() { return this; }, order() { return this; },
+        then(resolve) { return Promise.resolve({ data, error: null }).then(resolve); } };
+    },
+  };
+  const { syncStorefrontCatalog } = route('../src/lib/integrations/storefront-catalog.ts', {
+    admin, env: { STOREFRONT_API_URL: 'https://store.example.test', STOREFRONT_CATALOG_SYNC_SECRET: 'test' },
+    fetchMock: async (_url, options) => { payload = JSON.parse(options.body); return { ok: true }; },
+  });
+  const result = await syncStorefrontCatalog(1);
+  assert.equal(result.products, 0);
+  assert.equal(result.categories, 2);
+  assert.equal(payload.categories[0].active, false);
+  assert.equal(payload.categories[1].active, true);
 });
 
 test('Asaas payment webhook rejects missing configuration and foreign token', async () => {
