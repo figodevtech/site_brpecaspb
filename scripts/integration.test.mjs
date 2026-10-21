@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const root = new URL('../', import.meta.url);
 
 // Run the actual route handlers with isolated environment and service doubles.
-function route(file, { env = {}, admin, user = null, revalidatePath = () => {}, fetchMock } = {}) {
+function route(file, { env = {}, admin, user = null, revalidatePath = () => {}, fetchMock, asaas = {} } = {}) {
   const exports = {};
   const code = ts.transpileModule(fs.readFileSync(new URL(file, root), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
@@ -24,7 +24,7 @@ function route(file, { env = {}, admin, user = null, revalidatePath = () => {}, 
       if (name === '@/lib/integrations/storefront-http') return { storefrontFetch: fetchMock };
       if (name === '@/lib/supabase/server') return { createClient: async () => ({ auth: { getUser: async () => ({ data: { user } }) } }) };
       if (name === '@/lib/auth-utils') return route('lib/auth-utils.ts');
-      if (name === '@/lib/asaas') return new Proxy({}, { get() { return () => { throw new Error('Unexpected Asaas request'); }; } });
+      if (name === '@/lib/asaas') return new Proxy(asaas, { get(target, key) { return target[key] || (() => { throw new Error('Unexpected Asaas request'); }); } });
       return require(name);
     },
   }, { filename: file });
@@ -216,4 +216,34 @@ test('storefront controls use shadcn and never call native browser dialogs', () 
   }
   for (const directory of ['app','components','hooks']) walk(directory);
   assert.deepEqual(violations, []);
+});
+
+
+test('empty saved cards do not call Asaas; existing cards stay scoped and masked', async () => {
+  for (const hasCards of [false, true]) {
+    let gatewayCalls = 0;
+    const filters = [];
+    const cards = hasCards ? [
+      { id: 'own', provider_customer_id: 'current', brand: 'VISA', last_four: '1234', provider_card_token: 'private-token' },
+      { id: 'old-account', provider_customer_id: 'old', last_four: '5678' },
+    ] : [];
+    const admin = { from(table) {
+      return { select() { return this; }, eq(key, value) { filters.push([table, key, value]); return this; }, order() { return this; },
+        single: async () => ({ data: { id: 12, cpfcnpj: '12345678901' }, error: null }),
+        then(resolve) { return Promise.resolve({ data: cards, error: null }).then(resolve); },
+      };
+    } };
+    const handlers = route('app/api/account/cards/route.ts', { user: { id: 'user-1' }, admin,
+      asaas: { findAsaasCustomer: async () => { gatewayCalls++; return { id: 'current' }; } },
+    });
+    const response = await handlers.GET(request());
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(gatewayCalls, hasCards ? 1 : 0);
+    assert.deepEqual(result.cards.map(card => card.id), hasCards ? ['own'] : []);
+    assert.ok(filters.some(([table, key, value]) => table === 'customer_payment_card' && key === 'user_id' && value === 'user-1'));
+    assert.ok(filters.some(([table, key, value]) => table === 'customer_payment_card' && key === 'cliente_id' && value === 12));
+    assert.equal(JSON.stringify(result).includes('private-token'), false);
+    assert.equal(JSON.stringify(result).includes('provider_customer_id'), false);
+  }
 });

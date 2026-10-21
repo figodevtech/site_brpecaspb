@@ -72,6 +72,17 @@ export async function GET(request: Request) {
     if (!user) return NextResponse.json({ message: "Faça login para continuar." }, { status: 401 });
 
     const customer = await customerForUser(user.id);
+    const { data, error } = await supabaseAdmin
+      .from("customer_payment_card")
+      .select("id, provider_customer_id, brand, last_four, holder_name, expiry_month, expiry_year, is_default, created_at")
+      .eq("user_id", user.id)
+      .eq("cliente_id", customer.id)
+      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    // Sem cartões locais, não precisamos consultar o gateway de pagamento.
+    if (!data?.length) return NextResponse.json({ cards: [] });
+
     const currentCustomer = await findAsaasCustomer(
       cleanCpfCnpj(String(customer.cpfcnpj || "")),
       `LOJA-CLIENTE-${customer.id}`,
@@ -79,17 +90,7 @@ export async function GET(request: Request) {
     // Tokens cannot be moved between Asaas accounts or customer registrations.
     if (!currentCustomer) return NextResponse.json({ cards: [] });
 
-    const { data, error } = await supabaseAdmin
-      .from("customer_payment_card")
-      .select("id, brand, last_four, holder_name, expiry_month, expiry_year, is_default, created_at")
-      .eq("user_id", user.id)
-      .eq("cliente_id", customer.id)
-      .eq("provider_customer_id", currentCustomer.id)
-      .order("is_default", { ascending: false })
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-
-    return NextResponse.json({ cards: (data || []).map(publicCard) });
+    return NextResponse.json({ cards: data.filter(card => card.provider_customer_id === currentCustomer.id).map(publicCard) });
   } catch (error) {
     console.error("[api/account/cards] Falha ao listar cartões:", error instanceof Error ? error.message : error);
     return NextResponse.json({ message: "Não foi possível carregar seus cartões." }, { status: 500 });

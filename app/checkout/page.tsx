@@ -38,7 +38,6 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { isPickupEligible, type DeliveryMethod } from "@/lib/shipping";
 import { siteConfig } from "@/lib/site-config";
-import { isStandaloneDisplayMode } from "@/lib/pwa/display-mode";
 import { motion } from "motion/react";
 import { useVirtualKeyboardOpen } from "@/hooks/use-virtual-keyboard";
 import { cepDigits, formatCep, mobileInput } from "@/lib/forms/mobile-inputs";
@@ -129,6 +128,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<AsaasBillingType>("PIX");
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
   const [loadingCards, setLoadingCards] = useState(false);
+  const [cardsError, setCardsError] = useState(false);
   const [selectedSavedCardId, setSelectedSavedCardId] = useState("new");
   const clearedRef = useRef(false);
   const numeroInputRef = useRef<HTMLInputElement>(null);
@@ -165,6 +165,7 @@ export default function CheckoutPage() {
   const fetchSavedCards = useCallback(async () => {
     if (!user?.id) return;
     setLoadingCards(true);
+    setCardsError(false);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
@@ -179,8 +180,10 @@ export default function CheckoutPage() {
       setSavedCards(cards);
       const preferred = cards.find((card) => card.isDefault) || cards[0];
       setSelectedSavedCardId(preferred?.id || "new");
-    } catch (error) {
-      console.error("Erro ao carregar cartões salvos:", error);
+    } catch {
+      setCardsError(true);
+      setSavedCards([]);
+      setSelectedSavedCardId("new");
     } finally {
       setLoadingCards(false);
     }
@@ -381,21 +384,6 @@ export default function CheckoutPage() {
     }
 
     const useSavedCard = paymentMethod === "CREDIT_CARD" && selectedSavedCardId !== "new";
-    // No app instalado (PWA) popups são instáveis: o pagamento abre na própria janela e o
-    // Asaas retorna para /sucesso (callback autoRedirect configurado em /api/checkout).
-    const openInSameWindow = isStandaloneDisplayMode();
-    const width = 600;
-    const height = 750;
-    const left = window.screen.width / 2 - width / 2;
-    const top = window.screen.height / 2 - height / 2;
-    const paymentWindow = useSavedCard || openInSameWindow
-      ? null
-      : window.open(
-          "",
-          "AsaasCheckout",
-          `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes`,
-        );
-
     setIsProcessing(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -435,19 +423,15 @@ export default function CheckoutPage() {
           setCurrentOrderId(result.orderId);
         }
 
-        if (result.url && paymentWindow) {
-          paymentWindow.location.href = result.url;
-        } else if (result.url) {
+        if (result.url) {
           window.location.assign(result.url);
         } else {
           void checkOrderStatus();
         }
       } else {
-        paymentWindow?.close();
         throw new Error("URL de pagamento não retornada.");
       }
     } catch (err: unknown) {
-      paymentWindow?.close();
       console.error(err);
       toast.error(err instanceof Error ? err.message : "Erro ao processar o pagamento.");
     } finally {
@@ -674,7 +658,7 @@ export default function CheckoutPage() {
                 </h3>
                 <p className="text-xs text-muted-foreground max-w-md mx-auto">
                   {paymentUrl
-                    ? "A tela segura do Asaas foi aberta em uma nova janela. Conclua o pagamento para que o pedido seja liberado."
+                    ? "Continue para o ambiente seguro do Asaas nesta mesma aba para concluir o pagamento."
                     : "O Asaas está processando a cobrança no cartão salvo. Esta tela será atualizada assim que o pagamento for confirmado."}
                 </p>
                 <div className="flex flex-wrap gap-2 justify-center pt-2">
@@ -682,10 +666,10 @@ export default function CheckoutPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(paymentUrl, "AsaasCheckout")}
+                      onClick={() => window.location.assign(paymentUrl)}
                       className="text-xs gap-1 rounded-xl"
                     >
-                      <span>Reabrir Tela de Pagamento</span>
+                      <span>Continuar para o pagamento</span>
                       <ExternalLink className="w-3.5 h-3.5" />
                     </Button>
                   )}
@@ -764,6 +748,10 @@ export default function CheckoutPage() {
                       </Button>
                     </div>
 
+                    {cardsError && <div role="status" className="text-xs text-muted-foreground space-y-2">
+                      <p>Não foi possível consultar os cartões salvos. Você pode continuar preenchendo o cartão no ambiente seguro do Asaas.</p>
+                      <Button type="button" variant="outline" size="sm" onClick={() => void fetchSavedCards()}>Tentar novamente</Button>
+                    </div>}
                     {loadingCards ? (
                       <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" /> Carregando cartões...
