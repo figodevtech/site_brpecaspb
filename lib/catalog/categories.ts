@@ -22,6 +22,8 @@ export const getCategories = cache(async (): Promise<ProductCategory[]> => {
         .from("produto")
         .select("grupo_produto_id, imgUrl")
         .eq("visible", true)
+        .not("imgUrl", "is", null)
+        .not("imgUrl", "match", "^[[:space:]]*$")
         .eq("is_deleted", false)
         .order("id", { ascending: false })
         .range(offset, offset + 999);

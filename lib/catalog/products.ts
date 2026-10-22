@@ -7,7 +7,7 @@ export async function getCatalogFilterOptions() {
   let max = 0;
   for (let offset = 0; ; offset += 1000) {
     const { data, error } = await supabaseAdmin.from("produto")
-      .select("fabricante, precovenda").eq("is_deleted", false).eq("visible", true)
+      .select("fabricante, precovenda").eq("is_deleted", false).eq("visible", true).not("imgUrl", "is", null).not("imgUrl", "match", "^[[:space:]]*$")
       .order("id").range(offset, offset + 999);
     if (error) {
       console.error("Erro ao carregar opções do catálogo:", error);
@@ -122,7 +122,7 @@ export async function getProducts(filters: ProductFilters = {}): Promise<{ produ
         { count: "exact" }
       )
       .eq("is_deleted", false)
-      .eq("visible", true);
+      .eq("visible", true).not("imgUrl", "is", null).not("imgUrl", "match", "^[[:space:]]*$");
 
     // Se houve filtro veicular
     if (compatibleProductIds !== null) {
@@ -288,7 +288,7 @@ export async function getProductById(id: number): Promise<Product | null> {
       )
       .eq("id", id)
       .eq("is_deleted", false)
-      .eq("visible", true)
+      .eq("visible", true).not("imgUrl", "is", null).not("imgUrl", "match", "^[[:space:]]*$")
       .single();
 
     if (error || !item) {

@@ -35,7 +35,8 @@ export async function GET(request: Request) {
         conservacao,
         destaque
       `)
-      .in("id", ids).eq("visible", true).eq("is_deleted", false);
+      .in("id", ids).eq("visible", true).eq("is_deleted", false)
+      .not("imgUrl", "is", null).not("imgUrl", "match", "^[[:space:]]*$");
 
     if (error) {
       console.error("Erro ao buscar favoritos:", error);
