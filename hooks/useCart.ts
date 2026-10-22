@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { availableStock } from '@/lib/stock-client';
 import { Product, CartItem } from "@/lib/types";
 import { toast } from "sonner";
 import { purchasableQuantity, restoreCart } from "@/lib/cart";
@@ -11,6 +12,8 @@ export function useCart() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const pending = useRef(new Set<number>());
+  const revision = useRef(0);
 
   // Carregar do localStorage
   useEffect(() => {
@@ -39,7 +42,14 @@ export function useCart() {
     }
   }, [items, isLoaded]);
 
-  const addItem = useCallback((product: Product, quantity = 1) => {
+  const addItem = useCallback(async (product: Product, quantity = 1) => {
+    if(pending.current.has(product.id)) return;
+    pending.current.add(product.id);
+    const startedRevision=revision.current;
+    try {
+    const stock=await availableStock(product.id);
+    if(startedRevision!==revision.current) return;
+    product={...product,estoque:stock};
     const availableQuantity = purchasableQuantity(product, quantity);
     if (!availableQuantity) {
       toast.error("Este produto não está disponível para compra.");
@@ -64,31 +74,46 @@ export function useCart() {
     });
 
     setIsOpen(true);
+    } catch(error) {toast.error(error instanceof Error?error.message:'Não foi possível consultar o estoque.');}
+    finally {pending.current.delete(product.id);}
   }, []);
 
   const removeItem = useCallback((productId: number) => {
+    revision.current++;
     setItems((prev) => prev.filter((i) => i.produto.id !== productId));
   }, []);
 
-  const updateQuantity = useCallback((productId: number, quantity: number) => {
+  const updateQuantity = useCallback(async (productId: number, quantity: number) => {
     if (!Number.isFinite(quantity)) return;
     if (quantity <= 0) {
       removeItem(productId);
       return;
     }
 
+    if(pending.current.has(productId)) return;
+    pending.current.add(productId);
+    const startedRevision=revision.current;
+    try {
+    const stock=await availableStock(productId);
+    if(startedRevision!==revision.current) return;
+    if(stock<quantity) toast.warning(stock?`Disponível agora: ${stock} unidade(s).`:'Este produto está sem estoque.');
+
     setItems((prev) =>
       prev.map((i) => {
         if (i.produto.id === productId) {
-          const validQty = purchasableQuantity(i.produto, quantity);
-          return { ...i, quantidade: validQty };
+          const produto={...i.produto,estoque:stock};
+          const validQty = purchasableQuantity(produto, quantity);
+          return { ...i, produto, quantidade: validQty };
         }
         return i;
       }).filter(item => item.quantidade > 0)
     );
+    } catch(error) {toast.error(error instanceof Error?error.message:'Não foi possível consultar o estoque.');}
+    finally {pending.current.delete(productId);}
   }, [removeItem]);
 
   const clearCart = useCallback(() => {
+    revision.current++;
     setItems([]);
     try {
       localStorage.removeItem(CART_STORAGE_KEY);

@@ -144,6 +144,7 @@ export default function PedidosPage() {
         .from("venda")
         .select("*")
         .eq("clienteid", profile.id)
+        .eq("status", "PAGO")
         .eq("canal", "ONLINE")
         .order("datavenda", { ascending: false, nullsFirst: false })
         .order("createdat", { ascending: false, nullsFirst: false });
@@ -265,7 +266,7 @@ export default function PedidosPage() {
           </div>
           <h2 className="text-base font-bold text-foreground">Nenhum pedido encontrado</h2>
           <p className="text-xs text-muted-foreground mt-1 mb-6">
-            Seus pedidos aparecerão aqui assim que você finalizar uma compra.
+            Seus pedidos aparecerão aqui depois que o pagamento for confirmado.
           </p>
           <Button asChild className="rounded-xl px-6 font-semibold text-xs h-9">
             <Link href="/produtos">Explorar Catálogo</Link>
@@ -348,7 +349,7 @@ export default function PedidosPage() {
                           <div key={item.id} className="py-2.5 first:pt-0 flex items-center justify-between gap-4">
                             <div className="min-w-0 flex-1">
                               <span className="font-semibold text-foreground truncate block">
-                                {item.produto?.tituloMarketplace || item.produto?.titulo || "Componente Diesel"}
+                                {item.produto?.tituloMarketplace || item.produto?.titulo || "Produto"}
                               </span>
                               <span className="text-[11px] text-muted-foreground block">
                                 {item.produto?.fabricante ? `Fabricante: ${item.produto.fabricante} • ` : ""}Qtd: {item.quantidade}

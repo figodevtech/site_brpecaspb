@@ -19,6 +19,7 @@ export interface AsaasCustomer {
 }
 
 export interface AsaasPayment {
+  deleted?: boolean;
   refunds?: Array<{ status?: string }> | null;
   id: string;
   customer?: string;
@@ -28,6 +29,7 @@ export interface AsaasPayment {
   netValue?: number;
   dueDate?: string;
   invoiceUrl?: string;
+  bankSlipUrl?: string;
   externalReference?: string;
 }
 
@@ -78,6 +80,7 @@ export async function asaasRequest<T>(path: string, init: RequestInit = {}): Pro
 
   const response = await fetch(`${asaasApiUrl}${path}`, {
     ...init,
+    signal: init.signal || AbortSignal.timeout(30_000),
     cache: "no-store",
     headers: {
       Accept: "application/json",
@@ -124,6 +127,7 @@ export async function createAsaasCustomer(payload: Record<string, unknown>) {
 
 export async function createAsaasPayment(payload: Record<string, unknown>) {
   return asaasRequest<AsaasPayment>("/payments", {
+    signal: AbortSignal.timeout(90_000),
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -152,4 +156,11 @@ export async function refundAsaasBankSlip(paymentId: string) {
   return asaasRequest<{ requestUrl: string }>(`/payments/${encodeURIComponent(paymentId)}/bankSlip/refund`, {
     method: "POST", body: JSON.stringify({}), signal: AbortSignal.timeout(60_000),
   });
+}
+
+export async function getAsaasPixQrCode(paymentId: string) {
+  return asaasRequest<{ encodedImage: string; payload: string; expirationDate: string }>(`/payments/${encodeURIComponent(paymentId)}/pixQrCode`, { signal: AbortSignal.timeout(15_000) });
+}
+export async function getAsaasBoletoLine(paymentId: string) {
+  return asaasRequest<{ identificationField: string }>(`/payments/${encodeURIComponent(paymentId)}/identificationField`, { signal: AbortSignal.timeout(15_000) });
 }

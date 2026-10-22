@@ -156,6 +156,7 @@ export default function CartPage() {
                     <div className="flex items-center border border-zinc-300 rounded-lg">
                       <Button type="button" variant="ghost" size="sm"
                         onClick={() => updateQuantity(item.produto.id, item.quantidade - 1)}
+                         aria-label={`Diminuir quantidade de ${item.produto.titulo}`}
                         className="p-1.5 text-zinc-600 hover:bg-zinc-100"
                       >
                         <Minus className="w-3.5 h-3.5" />
@@ -165,6 +166,7 @@ export default function CartPage() {
                       </span>
                       <Button type="button" variant="ghost" size="sm"
                         onClick={() => updateQuantity(item.produto.id, item.quantidade + 1)}
+                         aria-label={`Aumentar quantidade de ${item.produto.titulo}`}
                         disabled={item.quantidade >= item.produto.estoque}
                         className="p-1.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-40"
                       >
