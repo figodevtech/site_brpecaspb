@@ -1,5 +1,10 @@
 "use client";
 
+import {checkoutAttempt,forgetCheckoutAttempt} from '@/lib/checkout-attempt-client';
+
+import { CheckoutCardFields } from "@/components/product/CheckoutCardFields";
+import { InlinePayment } from "@/components/product/InlinePayment";
+import { emptyCheckoutCard, parseCheckoutCard } from "@/lib/checkout-card";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -15,7 +20,6 @@ import {
   Truck,
   CheckCircle2,
   Loader2,
-  ExternalLink,
   Lock,
   ArrowLeft,
   Store,
@@ -65,7 +69,7 @@ const PAYMENT_OPTIONS: Array<{
   {
     value: "CREDIT_CARD",
     description: "Pagamento protegido pelo Asaas",
-    detail: "Informe os dados do cart\u00e3o no ambiente seguro.",
+    detail: "Informe os dados do cart\u00e3o aqui na loja.",
     icon: CreditCard,
   },
   {
@@ -121,7 +125,7 @@ export default function CheckoutPage() {
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("delivery");
 
   // Pagamento
-  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [card, setCard] = useState({ ...emptyCheckoutCard });
   const [isWaitingPayment, setIsWaitingPayment] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<number | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<"pending" | "paid">("pending");
@@ -309,10 +313,18 @@ export default function CheckoutPage() {
 
       if (res.ok) {
         const data = await res.json();
+        if (data.isCancelled) {
+          if(user?.id) forgetCheckoutAttempt(user.id);
+          setIsWaitingPayment(false);
+          setCurrentOrderId(null);
+          toast.info('O pagamento foi encerrado. Revise o carrinho antes de tentar novamente.');
+          return;
+        }
         if (data.isPaid) {
           setPaymentStatus("paid");
           if (!clearedRef.current) {
             clearedRef.current = true;
+            if(user?.id) forgetCheckoutAttempt(user.id);
             clearCart();
           }
         }
@@ -320,7 +332,7 @@ export default function CheckoutPage() {
     } catch (err) {
       console.error("Polling order error:", err);
     }
-  }, [currentOrderId, clearCart]);
+  }, [currentOrderId, clearCart, user]);
 
   // Tempo real via Supabase
   useEffect(() => {
@@ -336,7 +348,8 @@ export default function CheckoutPage() {
             setPaymentStatus("paid");
             if (!clearedRef.current) {
               clearedRef.current = true;
-              clearCart();
+              if(user?.id) forgetCheckoutAttempt(user.id);
+            clearCart();
             }
           }
         }
@@ -346,7 +359,7 @@ export default function CheckoutPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentOrderId, isWaitingPayment, paymentStatus, clearCart]);
+  }, [currentOrderId, isWaitingPayment, paymentStatus, clearCart, user]);
 
   // Mensagem enviada pelo popup com validação estrita de origem (Regra 14)
   useEffect(() => {
@@ -394,6 +407,8 @@ export default function CheckoutPage() {
         addressId: selectedAddressId,
         deliveryMethod,
         billingType: paymentMethod,
+        transparent: true,
+        card: paymentMethod === "CREDIT_CARD" && !useSavedCard ? card : undefined,
         savedCardId: useSavedCard ? selectedSavedCardId : undefined,
         items: items.map((it) => ({
           productId: it.product.id,
@@ -401,32 +416,33 @@ export default function CheckoutPage() {
         })),
       };
 
-      const response = await fetch("/api/checkout", {
+      let attemptId=checkoutAttempt(sessionData?.session?.user?.id || 'anonymous',checkoutData);
+      const existing=await fetch('/api/checkout/attempt?id='+encodeURIComponent(attemptId),{credentials:'include',cache:'no-store',headers:token?{Authorization:'Bearer '+token}:{}});
+      const existingResult=await existing.clone().json().catch(()=>null);
+      if(existingResult?.retryable){forgetCheckoutAttempt(sessionData?.session?.user?.id || 'anonymous');attemptId=checkoutAttempt(sessionData?.session?.user?.id || 'anonymous',checkoutData);}
+      if(!existing.ok && ![404,409].includes(existing.status))throw new Error(existingResult?.message||'Não foi possível consultar a tentativa de pagamento.');
+      if(!existing.ok && paymentMethod === 'CREDIT_CARD' && !useSavedCard && !parseCheckoutCard(card)){toast.error('Confira os dados do cartão e sua validade.');return;}
+      const response = existing.ok ? existing : await fetch("/api/checkout", {
         method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(checkoutData),
+        body: JSON.stringify({...checkoutData,checkoutAttemptId:attemptId}),
       });
 
       const result = await response.json();
       if (!response.ok) {
+        if (result.retryable) forgetCheckoutAttempt(sessionData?.session?.user?.id || 'anonymous');
         throw new Error(result.message || result.error || "Erro ao processar checkout");
       }
 
       if (result.url || result.directPayment) {
-        setPaymentUrl(result.url || null);
+        setCard({ ...emptyCheckoutCard });
         setIsWaitingPayment(true);
         if (result.orderId) {
           setCurrentOrderId(result.orderId);
-        }
-
-        if (result.url) {
-          window.location.assign(result.url);
-        } else {
-          void checkOrderStatus();
         }
       } else {
         throw new Error("URL de pagamento não retornada.");
@@ -435,12 +451,13 @@ export default function CheckoutPage() {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "Erro ao processar o pagamento.");
     } finally {
+      setCard(current => ({ ...current, ccv: "" }));
       setIsProcessing(false);
     }
   };
 
   const finalTotal = subtotal;
-  const canPay = !isProcessing && Boolean(selectedAddressId) && items.length > 0;
+  const canPay = !isProcessing && !isWaitingPayment && Boolean(selectedAddressId) && items.length > 0;
   const selectedPaymentOption =
     PAYMENT_OPTIONS.find((option) => option.value === paymentMethod) ?? PAYMENT_OPTIONS[0];
 
@@ -643,7 +660,7 @@ export default function CheckoutPage() {
               <div>
                 <h2 className="font-extrabold text-base text-foreground">Forma de pagamento</h2>
                 <p className="text-xs text-muted-foreground">
-                  Escolha como deseja concluir sua compra no ambiente seguro do Asaas.
+                  Escolha como deseja concluir sua compra aqui na loja, com processamento pelo Asaas.
                 </p>
               </div>
             </div>
@@ -657,22 +674,12 @@ export default function CheckoutPage() {
                   Aguardando confirma&ccedil;&atilde;o por {PAYMENT_METHOD_LABELS[paymentMethod]}
                 </h3>
                 <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                  {paymentUrl
-                    ? "Continue para o ambiente seguro do Asaas nesta mesma aba para concluir o pagamento."
-                    : "O Asaas está processando a cobrança no cartão salvo. Esta tela será atualizada assim que o pagamento for confirmado."}
+                  {paymentMethod === "CREDIT_CARD"
+                    ? "O Asaas está analisando o pagamento. Aguarde a confirmação nesta página."
+                    : "Conclua o pagamento com os dados abaixo. A confirmação será atualizada automaticamente."}
                 </p>
+                {currentOrderId && paymentMethod !== "CREDIT_CARD" && <InlinePayment orderId={currentOrderId} />}
                 <div className="flex flex-wrap gap-2 justify-center pt-2">
-                  {paymentUrl && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.location.assign(paymentUrl)}
-                      className="text-xs gap-1 rounded-xl"
-                    >
-                      <span>Continuar para o pagamento</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </Button>
-                  )}
                   <Button
                     variant="secondary"
                     size="sm"
@@ -749,7 +756,7 @@ export default function CheckoutPage() {
                     </div>
 
                     {cardsError && <div role="status" className="text-xs text-muted-foreground space-y-2">
-                      <p>Não foi possível consultar os cartões salvos. Você pode continuar preenchendo o cartão no ambiente seguro do Asaas.</p>
+                      <p>Não foi possível consultar os cartões salvos. Você pode preencher outro cartão abaixo.</p>
                       <Button type="button" variant="outline" size="sm" onClick={() => void fetchSavedCards()}>Tentar novamente</Button>
                     </div>}
                     {loadingCards ? (
@@ -791,11 +798,12 @@ export default function CheckoutPage() {
                           <Plus className="size-5 text-primary" />
                           <span>
                             <span className="block text-sm font-bold">Usar outro cartão</span>
-                            <span className="block text-[11px] text-muted-foreground">Preencher no ambiente seguro do Asaas</span>
+                            <span className="block text-[11px] text-muted-foreground">Preencher aqui no site</span>
                           </span>
                         </Label>
                       </RadioGroup>
                     )}
+                    {selectedSavedCardId === "new" && <CheckoutCardFields value={card} onChange={setCard} disabled={isProcessing} />}
                   </div>
                 )}
 
