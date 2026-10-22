@@ -7,7 +7,7 @@ import { useWishlistContext } from "@/components/providers/WishlistProvider";
 import { ProductCard } from "@/components/product/ProductCard";
 import { Product } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { AccountShell } from "@/components/account/AccountShell";
+import { AccountShell, AccountSectionHeader } from "@/components/account/AccountShell";
 import { useAuth } from "@/components/providers/AuthContext";
 import { useRouter } from "next/navigation";
 
@@ -46,41 +46,21 @@ export default function FavoritosPage() {
 
   return (
     <AccountShell>
-    <div className="bg-[#F8F9FA] min-h-screen py-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-6">
-        {/* Breadcrumb */}
-        <nav className="text-xs text-zinc-500 flex items-center gap-1.5">
-          <Link href="/" className="hover:text-zinc-900">
-            Início
-          </Link>
-          <span>/</span>
-          <span className="text-zinc-900 font-semibold">Meus Favoritos</span>
-        </nav>
-
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-zinc-200 gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-zinc-950 tracking-tight flex items-center gap-2">
-              <Heart className="w-7 h-7 text-[#FF6B00] fill-[#FF6B00]" />
-              Lista de Desejos / Favoritos
-            </h1>
-            <p className="text-xs text-zinc-500 mt-1">
-              Peças automotivas salvas para sua cotação ou compra posterior.
-            </p>
-          </div>
-
-          {totalFavorites > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearWishlist}
-              className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-            >
-              <Trash2 className="w-4 h-4 mr-1.5" />
-              Limpar Todos os Favoritos
-            </Button>
-          )}
-        </div>
+      <AccountSectionHeader
+        icon={Heart}
+        title="Lista de Desejos / Favoritos"
+        description={"Pe\u00e7as automotivas salvas para sua cota\u00e7\u00e3o ou compra posterior."}
+        action={totalFavorites > 0 ? (
+          <Button
+            variant="outline"
+            onClick={clearWishlist}
+            className="h-10 w-full gap-2 text-red-600 hover:bg-red-50 hover:text-red-700 border-red-200 sm:w-auto"
+          >
+            <Trash2 className="size-4" />
+            Limpar favoritos
+          </Button>
+        ) : undefined}
+      />
 
         {/* Conteúdo */}
         {(!isLoaded || (loading && totalFavorites > 0)) ? (
@@ -111,8 +91,6 @@ export default function FavoritosPage() {
             ))}
           </div>
         )}
-      </div>
-    </div>
     </AccountShell>
   );
 }
