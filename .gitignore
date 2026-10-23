@@ -9,6 +9,7 @@
 
 # next.js
 /.next/
+/.next-*/
 /.next-verify/
 /out/
 
