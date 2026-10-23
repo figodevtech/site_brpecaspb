@@ -58,7 +58,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               Nenhuma peça encontrada para &quot;{query}&quot;
             </h3>
             <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
-              Verifique a ortografia, tente buscar por montadora (ex: Toyota, Land Rover, Fiat) ou código da peça.
+              Verifique a ortografia ou tente buscar pelo nome, marca, referência ou código da peça.
             </p>
             <Link
               href="/produtos"

@@ -1,7 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { FileText, ShieldCheck, Truck, RotateCcw, AlertTriangle } from "lucide-react";
-import { siteConfig } from "@/lib/site-config";
+import { FileText } from "lucide-react";
 
 export const metadata = {
   title: "Termos de Uso e Condições Gerais | BR Peças PB",
@@ -69,7 +68,7 @@ export default function TermosUsoPage() {
               Compatibilidade e Responsabilidade Técnica
             </h2>
             <p>
-              Disponibilizamos filtros técnicos por montadora, modelo, ano de fabricação, códigos OEM e referências de catálogo. Cabe ao cliente e/ou mecânico instalador verificar a exata correspondência do código da peça original do veículo antes da aquisição e instalação.
+              Busque no catálogo pelo nome, marca, código ou referência da peça. Cabe ao cliente e/ou mecânico instalador verificar a exata correspondência do código da peça original do veículo antes da aquisição e instalação.
             </p>
             <p>
               Em caso de dúvidas prévias sobre encaixe, chicotes ou calibração de módulos, nosso suporte técnico está à disposição via WhatsApp oficial.

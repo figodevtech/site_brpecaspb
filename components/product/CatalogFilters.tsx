@@ -8,13 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import type { ProductCategory } from "@/lib/types";
-import type { VehicleOption } from "@/lib/catalog/vehicles";
 
-type Props = { categories: ProductCategory[]; brands: string[]; priceBounds: { min: number; max: number }; vehicles: VehicleOption[]; total: number; mobile?: boolean };
-const keys = ["categoria", "condicao", "fabricante", "estoque", "min", "max", "montadora", "modelo", "ano"];
+type Props = { categories: ProductCategory[]; brands: string[]; priceBounds: { min: number; max: number }; total: number; mobile?: boolean };
+const keys = ["categoria", "condicao", "fabricante", "estoque", "min", "max"];
 const conditions = [{ value: "NOVO", label: "Novas" }, { value: "USADO", label: "Seminovas" }, { value: "RECONDICIONADO", label: "Recondicionadas" }];
 const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -33,7 +31,7 @@ export function CatalogFilters(props: Props) {
   </Sheet>;
 }
 
-function FilterContent({ categories, brands, priceBounds, vehicles, mobile }: Props) {
+function FilterContent({ categories, brands, priceBounds }: Props) {
   const router = useRouter();
   const params = useSearchParams();
   const [pending, startTransition] = useTransition();
@@ -55,9 +53,6 @@ function FilterContent({ categories, brands, priceBounds, vehicles, mobile }: Pr
   };
   const clear = () => update(Object.fromEntries(keys.map(key => [key, null])));
   const active = keys.filter(key => params.has(key) && params.get(key) !== "TODOS");
-  const selectedVehicle = vehicles.find(vehicle => vehicle.montadora === params.get("montadora"));
-  const selectedModel = selectedVehicle?.modelos.find(model => model.nome === params.get("modelo"));
-  const years = selectedModel ? Array.from({ length: Math.min(150, Math.max(0, selectedModel.ano_fim - selectedModel.ano_inicio + 1)) }, (_, index) => String(selectedModel.ano_fim - index)) : [];
   const chipLabel = (key: string) => {
     const value = params.get(key)!;
     if (key === "categoria") return categories.find(category => String(category.id) === value)?.nome || "Categoria";
@@ -66,13 +61,13 @@ function FilterContent({ categories, brands, priceBounds, vehicles, mobile }: Pr
     if (key === "min" || key === "max") return `${key === "min" ? "De" : "Até"} ${money(Number(value))}`;
     return value;
   };
-  const remove = (key: string) => update({ [key]: null, ...(key === "montadora" ? { modelo: null, ano: null } : key === "modelo" ? { ano: null } : {}) });
+  const remove = (key: string) => update({ [key]: null });
   const isSelected = (key: string, value: string) => (params.get(key) || (key === "condicao" ? "TODOS" : "")) === value;
   const options = (items: { value: string; label: string }[], key: string) => items.map(item => <Button key={item.value} variant="ghost" disabled={pending} aria-pressed={isSelected(key, item.value)} onClick={() => update({ [key]: isSelected(key, item.value) || item.value === "TODOS" ? null : item.value })} className={`w-full min-h-10 h-auto justify-between whitespace-normal text-left font-normal ${isSelected(key, item.value) ? "bg-orange-50 text-orange-700 font-semibold" : "text-zinc-600"}`}><span>{item.label}</span>{isSelected(key, item.value) && <Check className="size-4 shrink-0" />}</Button>);
   return <div aria-busy={pending} className="pb-2">
     <div className="flex items-center justify-between gap-2 mb-3"><div><h2 className="font-bold text-sm">Filtrar produtos</h2><p className="text-xs text-muted-foreground mt-1">Refine o catálogo</p></div>{active.length > 0 && <Button variant="ghost" size="sm" disabled={pending} onClick={clear}>Limpar</Button>}</div>
     {active.length > 0 && <div className="flex flex-wrap gap-1.5 mb-4">{active.map(key => <Button key={key} variant="outline" size="sm" disabled={pending} onClick={() => remove(key)} aria-label={`Remover filtro ${chipLabel(key)}`} className="h-auto min-h-8 max-w-full whitespace-normal text-left text-xs bg-orange-50 border-orange-200 text-orange-800">{chipLabel(key)}<X className="size-3 shrink-0" /></Button>)}</div>}
-    <Accordion type="multiple" defaultValue={["categories", "stock", "condition", "price", "brands", "vehicle"]}>
+    <Accordion type="multiple" defaultValue={["categories", "stock", "condition", "price", "brands"]}>
       <AccordionItem value="categories"><AccordionTrigger>Categorias</AccordionTrigger><AccordionContent>
         {categories.length > 7 && <Input aria-label="Buscar categoria" placeholder="Buscar categoria..." value={categorySearch} onChange={event => setCategorySearch(event.target.value)} className="mb-2" />}
         <div className="max-h-52 overflow-y-auto">{options(categories.filter(category => category.nome.toLocaleLowerCase().includes(categorySearch.toLocaleLowerCase())).map(category => ({ value: String(category.id), label: category.nome })), "categoria")}</div>
@@ -81,11 +76,6 @@ function FilterContent({ categories, brands, priceBounds, vehicles, mobile }: Pr
       <AccordionItem value="condition"><AccordionTrigger>Estado da peça</AccordionTrigger><AccordionContent>{options([{ value: "TODOS", label: "Todas as peças" }, ...conditions], "condicao")}</AccordionContent></AccordionItem>
       <AccordionItem value="price"><AccordionTrigger>Faixa de preço</AccordionTrigger><AccordionContent><div className="px-2 py-4"><Slider aria-label="Faixa de preço" min={floor} max={ceiling} step={1} value={price} onValueChange={setPrice} disabled={pending || priceBounds.max === 0} /></div><div className="flex justify-between gap-2 text-xs tabular-nums"><span>{money(price[0])}</span><span>{money(price[1])}</span></div><Button variant="outline" className="w-full mt-3" disabled={pending || priceBounds.max === 0} onClick={() => update({ min: price[0] > floor ? String(price[0]) : null, max: price[1] < ceiling ? String(price[1]) : null })}>Aplicar faixa de preço</Button></AccordionContent></AccordionItem>
       {brands.length > 0 && <AccordionItem value="brands"><AccordionTrigger>Marcas das peças</AccordionTrigger><AccordionContent>{brands.length > 7 && <Input aria-label="Buscar marca" placeholder="Buscar marca..." value={brandSearch} onChange={event => setBrandSearch(event.target.value)} className="mb-2" />}<div className="max-h-52 overflow-y-auto">{options(brands.filter(brand => brand.toLocaleLowerCase().includes(brandSearch.toLocaleLowerCase())).map(brand => ({ value: brand, label: brand })), "fabricante")}</div></AccordionContent></AccordionItem>}
-      {vehicles.length > 0 && <AccordionItem value="vehicle"><AccordionTrigger>Compatibilidade do veículo</AccordionTrigger><AccordionContent className="space-y-3">
-        <Select value={params.get("montadora") || "all"} disabled={pending} onValueChange={value => update({ montadora: value === "all" ? null : value, modelo: null, ano: null })}><SelectTrigger aria-label="Montadora" className="w-full"><SelectValue placeholder="Montadora" /></SelectTrigger><SelectContent><SelectItem value="all">Todas as montadoras</SelectItem>{vehicles.map(vehicle => <SelectItem key={vehicle.montadora} value={vehicle.montadora}>{vehicle.montadora}</SelectItem>)}</SelectContent></Select>
-        <Select value={params.get("modelo") || "all"} disabled={pending || !selectedVehicle} onValueChange={value => update({ modelo: value === "all" ? null : value, ano: null })}><SelectTrigger aria-label="Modelo" className="w-full"><SelectValue placeholder="Modelo" /></SelectTrigger><SelectContent><SelectItem value="all">Todos os modelos</SelectItem>{selectedVehicle?.modelos.map(model => <SelectItem key={model.nome} value={model.nome}>{model.nome}</SelectItem>)}</SelectContent></Select>
-        <Select value={params.get("ano") || "all"} disabled={pending || !selectedModel} onValueChange={value => update({ ano: value === "all" ? null : value })}><SelectTrigger aria-label="Ano" className="w-full"><SelectValue placeholder="Ano" /></SelectTrigger><SelectContent><SelectItem value="all">Todos os anos</SelectItem>{years.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}</SelectContent></Select>
-      </AccordionContent></AccordionItem>}
     </Accordion>
   </div>;
 }

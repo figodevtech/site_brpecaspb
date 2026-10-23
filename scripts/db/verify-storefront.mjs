@@ -26,7 +26,7 @@ try {
   await client.connect();
   const result = await client.query(`select table_name, array_agg(column_name::text order by ordinal_position) as columns
     from information_schema.columns where table_schema='public' and table_name in
-    ('produto','cliente','favorito','venda','cliente_endereco','store_payment_config','order_fulfillment_event','customer_payment_card','produto_compatibilidade') group by table_name order by table_name`);
+    ('produto','cliente','favorito','venda','cliente_endereco','store_payment_config','order_fulfillment_event','customer_payment_card') group by table_name order by table_name`);
   for (const row of result.rows) console.log(`${row.table_name}: ${row.columns.join(', ')}`);
   const tables = new Set(result.rows.map(row => row.table_name));
   if (tables.has('produto')) {

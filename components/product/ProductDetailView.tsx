@@ -7,16 +7,11 @@ import {
   ShieldCheck,
   CheckCircle2,
   Truck,
-  Car,
   ShoppingCart,
   Heart,
   MessageCircle,
   FileCheck,
-  AlertCircle,
   MapPin,
-  Clock,
-  Layers,
-  ArrowRight,
 } from "lucide-react";
 import { Product, ShippingOption } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
@@ -310,38 +305,6 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
             </div>
           </div>
         </div>
-
-        {/* Compatibilidade Automotiva Confirmada */}
-        {product.compatibilidades && product.compatibilidades.length > 0 && (
-          <div className="bg-white rounded-3xl border border-zinc-200 p-6 sm:p-8 shadow-sm mb-10">
-            <div className="flex items-center gap-2 mb-4">
-              <Car className="w-5 h-5 text-[#FF6B00]" />
-              <h3 className="text-lg font-black text-zinc-950">
-                Veículos Compatíveis Confirmados
-              </h3>
-            </div>
-            <p className="text-xs text-zinc-500 mb-4">
-              Aplicação técnica validada para os seguintes modelos e anos:
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {product.compatibilidades.map((c) => (
-                <div
-                  key={c.id}
-                  className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex flex-col justify-between"
-                >
-                  <div className="font-bold text-xs text-zinc-900">
-                    {c.montadora} {c.modelo}
-                  </div>
-                  <div className="text-[11px] text-zinc-600 mt-1">
-                    Anos: <strong>{c.ano_inicio} a {c.ano_fim}</strong>
-                    {c.motor && ` · Motor ${c.motor}`}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Descrição Técnica Completa */}
         <div className="bg-white rounded-3xl border border-zinc-200 p-6 sm:p-8 shadow-sm mb-10">

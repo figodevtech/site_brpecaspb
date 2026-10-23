@@ -7,7 +7,7 @@ export function SearchField({ value, onChange, id }: { value: string; onChange: 
   return (
     <InputGroup className="h-11 rounded-xl border-white/20 bg-white text-zinc-950 shadow-sm has-[[data-slot=input-group-control]:focus-visible]:border-orange-400 has-[[data-slot=input-group-control]:focus-visible]:ring-orange-400/30">
       <InputGroupInput id={id} type="search" name="q" aria-label="Buscar peças" autoComplete="off" enterKeyHint="search"
-        value={value} onChange={event => onChange(event.target.value)} placeholder="Buscar peça, código ou veículo"
+        value={value} onChange={event => onChange(event.target.value)} placeholder="Buscar peça, código ou marca"
         className="h-full min-w-0 text-base text-zinc-950 placeholder:text-zinc-500 md:text-sm [&::-webkit-search-cancel-button]:cursor-pointer" />
       <InputGroupAddon align="inline-end" className="pr-2">
         <InputGroupButton type="submit" size="icon-sm" aria-label="Pesquisar" title="Pesquisar"

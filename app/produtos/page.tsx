@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ProductCard } from "@/components/product/ProductCard";
 import { getProducts, getCatalogFilterOptions, ProductFilters } from "@/lib/catalog/products";
 import { getCategories } from "@/lib/catalog/categories";
-import { getVehicleFilterOptions } from "@/lib/catalog/vehicles";
 import { Filter } from "lucide-react";
 import { CatalogFilters } from "@/components/product/CatalogFilters";
 import { CatalogSort } from "@/components/product/CatalogSort";
@@ -16,9 +15,6 @@ interface ProdutosPageProps {
     condicao?: "NOVO" | "USADO" | "RECONDICIONADO" | "TODOS";
     fabricante?: string;
     estoque?: string;
-    montadora?: string;
-    modelo?: string;
-    ano?: string;
     sort?: "price_asc" | "price_desc" | "recent" | "name";
     min?: string;
     max?: string;
@@ -32,7 +28,6 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
   const pageSize = 48;
 
   const categoryId = resolvedParams.categoria ? parseInt(resolvedParams.categoria, 10) : undefined;
-  const anoNum = resolvedParams.ano ? parseInt(resolvedParams.ano, 10) : undefined;
   const minPrice = resolvedParams.min ? parseFloat(resolvedParams.min) : undefined;
   const maxPrice = resolvedParams.max ? parseFloat(resolvedParams.max) : undefined;
 
@@ -42,9 +37,6 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
     inStockOnly: resolvedParams.estoque === "disponivel",
     categoryId: isNaN(categoryId as number) ? undefined : categoryId,
     condition: resolvedParams.condicao,
-    montadora: resolvedParams.montadora,
-    modelo: resolvedParams.modelo,
-    ano: isNaN(anoNum as number) ? undefined : anoNum,
     sort: resolvedParams.sort || "recent",
     minPrice,
     maxPrice,
@@ -52,10 +44,9 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
     offset: (page - 1) * pageSize,
   };
 
-  const [{ products, total }, categories, vehicleOptions, filterOptions] = await Promise.all([
+  const [{ products, total }, categories, filterOptions] = await Promise.all([
     getProducts(filters),
     getCategories(),
-    getVehicleFilterOptions(),
     getCatalogFilterOptions(),
   ]);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -88,7 +79,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <CatalogFilters mobile categories={categories} vehicles={vehicleOptions} {...filterOptions} total={total} />
+              <CatalogFilters mobile categories={categories} {...filterOptions} total={total} />
               <CatalogSort value={resolvedParams.sort || "recent"} />
             </div>
           </div>
@@ -96,7 +87,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
 
         <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-8 items-start">
           <aside className="hidden lg:block sticky top-40 max-h-[calc(100dvh-11rem)] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-5">
-            <CatalogFilters categories={categories} vehicles={vehicleOptions} {...filterOptions} total={total} />
+            <CatalogFilters categories={categories} {...filterOptions} total={total} />
           </aside>
 
           {/* Grid de Produtos */}
@@ -110,7 +101,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
                   Nenhuma peça encontrada com estes filtros
                 </h3>
                 <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
-                  Tente limpar alguns filtros ou faça uma busca mais ampla pelo modelo do seu carro.
+                  Tente limpar alguns filtros ou buscar pelo nome, marca ou código da peça.
                 </p>
                 <Link
                   href="/produtos"

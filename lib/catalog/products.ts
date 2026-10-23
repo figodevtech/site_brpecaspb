@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { Product, ProductImage, VehicleCompatibility } from "@/lib/types";
+import { Product, ProductImage } from "@/lib/types";
 
 export async function getCatalogFilterOptions() {
   const brands = new Set<string>();
@@ -31,9 +31,6 @@ export interface ProductFilters {
   categoryId?: number;
   condition?: "NOVO" | "USADO" | "RECONDICIONADO" | "TODOS";
   manufacturer?: string;
-  montadora?: string;
-  modelo?: string;
-  ano?: number;
   minPrice?: number;
   maxPrice?: number;
   featured?: boolean;
@@ -49,9 +46,6 @@ export async function getProducts(filters: ProductFilters = {}): Promise<{ produ
     categoryId,
     condition,
     manufacturer,
-    montadora,
-    modelo,
-    ano,
     minPrice,
     maxPrice,
     featured,
@@ -62,37 +56,6 @@ export async function getProducts(filters: ProductFilters = {}): Promise<{ produ
   } = filters;
 
   try {
-    // Se houver filtro de compatibilidade veicular específico, buscar IDs de produtos compatíveis primeiro
-    let compatibleProductIds: number[] | null = null;
-    if (montadora || modelo || ano) {
-      let compQuery = supabaseAdmin
-        .from("veiculo_compatibilidade")
-        .select("id, montadora, modelo, ano_inicio, ano_fim");
-
-      if (montadora) {
-        compQuery = compQuery.ilike("montadora", montadora);
-      }
-      if (modelo) {
-        compQuery = compQuery.ilike("modelo", `%${modelo}%`);
-      }
-      if (ano) {
-        compQuery = compQuery.lte("ano_inicio", ano).gte("ano_fim", ano);
-      }
-
-      const { data: compVehicles } = await compQuery;
-      if (compVehicles && compVehicles.length > 0) {
-        const compIds = compVehicles.map((v) => v.id);
-        const { data: prodLinks } = await supabaseAdmin
-          .from("produto_compatibilidade")
-          .select("produto_id")
-          .in("compatibilidade_id", compIds);
-
-        compatibleProductIds = (prodLinks || []).map((l) => l.produto_id);
-      } else {
-        compatibleProductIds = [];
-      }
-    }
-
     let supabaseQuery = supabaseAdmin
       .from("produto")
       .select(
@@ -123,14 +86,6 @@ export async function getProducts(filters: ProductFilters = {}): Promise<{ produ
       )
       .eq("is_deleted", false)
       .eq("visible", true).not("imgUrl", "is", null).not("imgUrl", "match", "^[[:space:]]*$");
-
-    // Se houve filtro veicular
-    if (compatibleProductIds !== null) {
-      if (compatibleProductIds.length === 0) {
-        return { products: [], total: 0 };
-      }
-      supabaseQuery = supabaseQuery.in("id", compatibleProductIds);
-    }
 
     if (query && query.trim()) {
       const q = query.trim().replace(/[%_,().\\]/g, " ").slice(0, 160);
@@ -302,33 +257,6 @@ export async function getProductById(id: number): Promise<Product | null> {
       .eq("produto_id", id)
       .order("ordem", { ascending: true });
 
-    const primaryImg = item.imgUrl || images?.[0]?.url || null;
-
-    // Buscar compatibilidades do produto
-    const { data: compLinks } = await supabaseAdmin
-      .from("produto_compatibilidade")
-      .select(
-        `
-        observacao,
-        veiculo_compatibilidade (
-          id,
-          montadora,
-          modelo,
-          ano_inicio,
-          ano_fim,
-          motor,
-          versao,
-          combustivel
-        )
-      `
-      )
-      .eq("produto_id", id);
-
-    const compatibilidades: VehicleCompatibility[] = (compLinks || []).flatMap(link => {
-      const vehicle = Array.isArray(link.veiculo_compatibilidade) ? link.veiculo_compatibilidade[0] : link.veiculo_compatibilidade;
-      return vehicle ? [{ ...vehicle, observacao: link.observacao }] : [];
-    });
-
     const effectivePrice = Number(item.precovenda || 0);
 
     const isUsed = (item.conservacao || "USADO").toUpperCase() === "USADO";
@@ -355,7 +283,6 @@ export async function getProductById(id: number): Promise<Product | null> {
       
       garantia_dias: isUsed ? 90 : 180,
       imagens: images || [],
-      compatibilidades,
       origem_veiculo: isUsed
         ? {
             testado_bancada: true,

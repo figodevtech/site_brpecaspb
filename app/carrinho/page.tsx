@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   Truck,
   ArrowLeft,
-  MapPin,
 } from "lucide-react";
 import { useCartContext } from "@/components/providers/CartProvider";
 import { formatPrice } from "@/lib/utils";
@@ -64,7 +63,7 @@ export default function CartPage() {
           </div>
           <h2 className="text-xl font-black text-zinc-900">Seu carrinho está vazio</h2>
           <p className="text-xs text-zinc-500 mt-2">
-            Adicione itens ao carrinho navegando por nossas categorias ou pesquisando por seu veículo.
+            Adicione itens ao carrinho navegando pelas categorias ou buscando pelo nome ou código da peça.
           </p>
           <Button
             asChild

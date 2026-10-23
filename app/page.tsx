@@ -1,21 +1,18 @@
 import React from "react";
 import Link from "next/link";
-import { ArrowRight, Sparkles, ShieldCheck, Flame, Wrench } from "lucide-react";
+import { ArrowRight, Flame, Wrench } from "lucide-react";
 import { HeroCarousel } from "@/components/home/HeroCarousel";
-import { VehicleSelectorWidget } from "@/components/home/VehicleSelectorWidget";
 import { CategoryShowcase } from "@/components/home/CategoryShowcase";
 import { DismantlingLegalSection } from "@/components/home/DismantlingLegalSection";
 import { ProductCard } from "@/components/product/ProductCard";
 import { getProducts } from "@/lib/catalog/products";
 import { getCategories } from "@/lib/catalog/categories";
-import { getVehicleFilterOptions } from "@/lib/catalog/vehicles";
 import { siteConfig } from "@/lib/site-config";
 
 export const revalidate = 60; // ISR 60s
 
 export default async function HomePage() {
-  const [vehicleOptions, categories, featuredData, usedData] = await Promise.all([
-    getVehicleFilterOptions(),
+  const [categories, featuredData, usedData] = await Promise.all([
     getCategories(),
     getProducts({ limit: 8 }),
     getProducts({ limit: 8, condition: "USADO" }),
@@ -25,11 +22,6 @@ export default async function HomePage() {
     <div className="flex flex-col min-h-screen">
       {/* 1. Hero Carousel com fotos automotivas de alto impacto */}
       <HeroCarousel />
-
-      {/* 2. Seletor Inteligente de Veículos */}
-      <div className="bg-[#F4F6F9] border-b border-zinc-200">
-        <VehicleSelectorWidget vehicleOptions={vehicleOptions} />
-      </div>
 
       {/* 3. Vitrine de Categorias */}
       <CategoryShowcase categories={categories} />

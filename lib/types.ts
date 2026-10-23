@@ -8,18 +8,6 @@ export interface ProductImage {
   ordem: number;
 }
 
-export interface VehicleCompatibility {
-  id: number;
-  montadora: string;
-  modelo: string;
-  ano_inicio: number;
-  ano_fim: number;
-  motor?: string | null;
-  versao?: string | null;
-  combustivel?: string | null;
-  observacao?: string | null;
-}
-
 export interface Product {
   id: number;
   titulo: string;
@@ -42,7 +30,6 @@ export interface Product {
   local?: string | null;
   garantia_dias?: number;
   imagens?: ProductImage[];
-  compatibilidades?: VehicleCompatibility[];
   defeitos_informados?: string | null;
   origem_veiculo?: {
     testado_bancada?: boolean;
