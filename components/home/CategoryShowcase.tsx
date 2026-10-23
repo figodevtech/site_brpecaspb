@@ -2,7 +2,6 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Layers } from "lucide-react";
-import type { ProductCategory } from "@/lib/types";
 import {
   Carousel,
   CarouselContent,
@@ -11,12 +10,26 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 
-interface CategoryShowcaseProps {
-  categories: ProductCategory[];
-}
+// Curadoria fixa da vitrine: nomes, buscas e imagens locais independem do banco.
+const categories = [
+  { nome: "Painel de Instrumentos", busca: "painel", imagem: "/images/categories/painel-v2.webp" },
+  { nome: "Módulos", busca: "modulo", imagem: "/images/categories/modulos-v2.webp" },
+  { nome: "Volantes", busca: "volante", imagem: "/images/categories/volantes.jpg" },
+  { nome: "Freios", busca: "freio", imagem: "/images/categories/freios.jpg" },
+  { nome: "Motor", busca: "motor", imagem: "/images/categories/motor-v2.webp" },
+  { nome: "Motor de Partida", busca: "motor de partida", imagem: "/images/categories/motor-de-partida-v3.webp" },
+  { nome: "Alternadores", busca: "alternador", imagem: "/images/categories/alternador-v2.webp" },
+  // { nome: "Filtros de Óleo", busca: "filtro de óleo", imagem: "/images/categories/filtros-de-oleo-v2.webp" },
+  // { nome: "Filtros de Ar", busca: "filtro de ar", imagem: "/images/categories/filtros-de-ar-v2.webp" },
+  // { nome: "Filtros de Combustível", busca: "combustível", imagem: "/images/categories/filtros-de-combustivel-v2.webp" },
+  // { nome: "Óleos e Lubrificantes", busca: "oleo", imagem: "/images/categories/oleos-lubrificantes-v2.webp" },
+  // { nome: "Arrefecimento", busca: "radiador", imagem: "/images/categories/arrefecimento-v2.webp" },
+  { nome: "Molduras", busca: "moldura", imagem: "/images/categories/molduras-v2.webp" },
+  { nome: "Botões e Comandos", busca: "botao", imagem: "/images/categories/botoes-comandos-v2.webp" },
+  { nome: "Pedais", busca: "pedal", imagem: "/images/categories/pedais-v2.webp" },
+] as const;
 
-export function CategoryShowcase({ categories }: CategoryShowcaseProps) {
-  if (categories.length === 0) return null;
+export function CategoryShowcase() {
   return (
     <section className="bg-zinc-50 py-12 sm:py-14" aria-labelledby="categories-heading">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -47,21 +60,21 @@ export function CategoryShowcase({ categories }: CategoryShowcaseProps) {
           <CarouselContent className="-ml-4 sm:-ml-6">
             {categories.map((cat) => (
               <CarouselItem
-                key={cat.id}
+                key={cat.busca}
                 className="basis-[128px] pl-4 sm:basis-[156px] sm:pl-6 lg:basis-[168px]"
               >
                 <Link
-                  href={`/produtos?categoria=${cat.id}`}
+                  href={`/produtos?${new URLSearchParams({ q: cat.busca })}`}
                   className="group flex flex-col items-center gap-4 rounded-lg px-1 py-2 text-center outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B00] focus-visible:ring-inset"
                 >
                   <div className="relative size-24 shrink-0 overflow-hidden rounded-full border border-zinc-200/70 bg-white shadow-sm transition-all duration-300 group-hover:border-[#FF6B00] group-hover:shadow-md sm:size-28 lg:size-32">
-                    {cat.imagem ? <Image
+                    <Image
                       src={cat.imagem}
                       alt={cat.nome}
                       fill
                       sizes="(min-width: 1024px) 128px, (min-width: 640px) 112px, 96px"
                       className="object-contain p-4 transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none"
-                    /> : <Layers aria-hidden="true" className="size-10 text-zinc-300 absolute inset-0 m-auto" />}
+                    />
                   </div>
                   <h3 className="min-h-10 text-xs font-semibold leading-5 text-zinc-800 transition-colors group-hover:text-[#FF6B00] sm:text-sm">
                     {cat.nome}

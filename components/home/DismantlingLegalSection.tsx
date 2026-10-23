@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ShieldCheck, CheckCircle2, Award, ArrowRight, Wrench, Phone } from "lucide-react";
+import { ShieldCheck, CheckCircle2, Award, ArrowRight, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/site-config";
 
@@ -14,16 +14,17 @@ export function DismantlingLegalSection() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          {/* Lado Esquerdo: Imagem / Badge Cinematográfico */}
+          {/* Lado Esquerdo: Imagem de inspeção / Selo de qualidade */}
           <div className="relative rounded-2xl overflow-hidden border border-orange-500/30 shadow-2xl group">
             <div className="relative aspect-16/10 w-full">
               <Image
-                src="/banners/banner_2.jpg"
-                alt="Inspeção Técnica de Peças BR Peças PB"
+                src="/banners/inspecao-bancada-v2.webp"
+                alt="Inspeção dos conectores de um módulo automotivo em bancada"
                 fill
+                sizes="(min-width: 1280px) 592px, (min-width: 1024px) calc(50vw - 48px), (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)"
                 className="object-cover group-hover:scale-105 transition-transform duration-700"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
             </div>
 
             {/* Selo Sobreposto */}

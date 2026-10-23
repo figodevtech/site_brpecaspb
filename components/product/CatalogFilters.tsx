@@ -10,9 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import type { ProductCategory } from "@/lib/types";
+import { getCatalogCollection } from "@/lib/catalog/collections";
 
 type Props = { categories: ProductCategory[]; brands: string[]; priceBounds: { min: number; max: number }; total: number; mobile?: boolean };
-const keys = ["categoria", "condicao", "fabricante", "estoque", "min", "max"];
+const keys = ["colecao", "categoria", "condicao", "fabricante", "estoque", "min", "max"];
 const conditions = [{ value: "NOVO", label: "Novas" }, { value: "USADO", label: "Seminovas" }, { value: "RECONDICIONADO", label: "Recondicionadas" }];
 const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -55,6 +56,7 @@ function FilterContent({ categories, brands, priceBounds }: Props) {
   const active = keys.filter(key => params.has(key) && params.get(key) !== "TODOS");
   const chipLabel = (key: string) => {
     const value = params.get(key)!;
+    if (key === "colecao") return getCatalogCollection(value)?.title || "Seleção de produtos";
     if (key === "categoria") return categories.find(category => String(category.id) === value)?.nome || "Categoria";
     if (key === "condicao") return conditions.find(condition => condition.value === value)?.label || value;
     if (key === "estoque") return "Pronta entrega";

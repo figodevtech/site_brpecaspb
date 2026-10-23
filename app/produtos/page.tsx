@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ProductCard } from "@/components/product/ProductCard";
 import { getProducts, getCatalogFilterOptions, ProductFilters } from "@/lib/catalog/products";
 import { getCategories } from "@/lib/catalog/categories";
+import { getCatalogCollection } from "@/lib/catalog/collections";
 import { Filter } from "lucide-react";
 import { CatalogFilters } from "@/components/product/CatalogFilters";
 import { CatalogSort } from "@/components/product/CatalogSort";
@@ -12,6 +13,7 @@ interface ProdutosPageProps {
   searchParams: Promise<{
     q?: string;
     categoria?: string;
+    colecao?: string;
     condicao?: "NOVO" | "USADO" | "RECONDICIONADO" | "TODOS";
     fabricante?: string;
     estoque?: string;
@@ -26,6 +28,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
   const resolvedParams = await searchParams;
   const page = Math.max(1, Math.floor(Number(resolvedParams.page) || 1));
   const pageSize = 48;
+  const collection = getCatalogCollection(resolvedParams.colecao);
 
   const categoryId = resolvedParams.categoria ? parseInt(resolvedParams.categoria, 10) : undefined;
   const minPrice = resolvedParams.min ? parseFloat(resolvedParams.min) : undefined;
@@ -36,6 +39,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
     manufacturer: resolvedParams.fabricante,
     inStockOnly: resolvedParams.estoque === "disponivel",
     categoryId: isNaN(categoryId as number) ? undefined : categoryId,
+    collection: collection?.slug,
     condition: resolvedParams.condicao,
     sort: resolvedParams.sort || "recent",
     minPrice,
@@ -50,6 +54,9 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
     getCatalogFilterOptions(),
   ]);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const filterCategories = collection
+    ? categories.filter((category) => collection.categorySlugs.includes(category.slug))
+    : categories;
   const pageUrl = (number: number) => {
     const params = new URLSearchParams(Object.entries(resolvedParams).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
     params.set("page", String(number));
@@ -71,7 +78,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-black text-zinc-950 tracking-tight">
-                Catálogo de Peças Automotivas
+                {collection?.title || "Catálogo de Peças Automotivas"}
               </h1>
               <p className="text-xs text-zinc-500 mt-1">
                 Mostrando <strong className="text-zinc-900">{products.length}</strong> de{" "}
@@ -79,7 +86,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <CatalogFilters mobile categories={categories} {...filterOptions} total={total} />
+              <CatalogFilters mobile categories={filterCategories} {...filterOptions} total={total} />
               <CatalogSort value={resolvedParams.sort || "recent"} />
             </div>
           </div>
@@ -87,7 +94,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
 
         <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-8 items-start">
           <aside className="hidden lg:block sticky top-40 max-h-[calc(100dvh-11rem)] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-5">
-            <CatalogFilters categories={categories} {...filterOptions} total={total} />
+            <CatalogFilters categories={filterCategories} {...filterOptions} total={total} />
           </aside>
 
           {/* Grid de Produtos */}

@@ -14,6 +14,7 @@ import {
   X,
   Car,
   Sparkles,
+  ChevronDown,
 } from "lucide-react";
 import { useCartContext } from "@/components/providers/CartProvider";
 import { useWishlistContext } from "@/components/providers/WishlistProvider";
@@ -31,6 +32,7 @@ export function Header({ categories = [] }: { categories?: ProductCategory[] }) 
   const { totalFavorites } = useWishlistContext();
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [categoriesExpanded, setCategoriesExpanded] = useState(false);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,7 +173,10 @@ export function Header({ categories = [] }: { categories?: ProductCategory[] }) 
 
           {/* Mobile menu toggle */}
           <Button type="button" variant="ghost" size="sm"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => {
+              setMobileMenuOpen(!mobileMenuOpen);
+              setCategoriesExpanded(false);
+            }}
             aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"} aria-expanded={mobileMenuOpen} aria-controls="mobile-menu"
             className="lg:hidden size-10 p-2 text-zinc-300 hover:text-white rounded-lg"
           >
@@ -188,34 +193,70 @@ export function Header({ categories = [] }: { categories?: ProductCategory[] }) 
       </div>
 
       {/* Category Navigation Bar */}
-      <div className="bg-[#12151D] border-t border-white/5 overflow-x-auto scrollbar-none">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-1 py-1.5 text-xs font-medium whitespace-nowrap">
-          <Link
-            href="/produtos"
-            className="text-white hover:text-[#FF6B00] px-3 py-1.5 rounded hover:bg-white/5 flex items-center gap-1.5 font-semibold text-[#FF6B00]"
+      <nav aria-label="Categorias de produtos" className="relative bg-[#12151D] border-t border-white/5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-2 py-1.5 text-xs font-medium">
+          <div className="min-w-0 flex-1 overflow-x-auto scrollbar-none">
+            <div className="flex items-center gap-1 whitespace-nowrap">
+              <Link
+                href="/produtos"
+                onClick={() => setCategoriesExpanded(false)}
+                className="text-white hover:text-[#FF6B00] px-3 py-1.5 rounded hover:bg-white/5 flex items-center gap-1.5 font-semibold text-[#FF6B00]"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Todas as Peças
+              </Link>
+
+              <span className="text-zinc-700">|</span>
+
+              {navCategories.map((cat) => (
+                <Link
+                  key={cat.href}
+                  href={cat.href}
+                  onClick={() => setCategoriesExpanded(false)}
+                  className="text-zinc-300 hover:text-white px-3 py-1.5 rounded hover:bg-white/5 transition-colors flex items-center gap-1"
+                >
+                  {cat.name}
+                  {cat.badge && (
+                    <span className="bg-[#FF6B00] text-black text-[9px] font-extrabold px-1 py-0.2 rounded-sm ml-0.5">
+                      {cat.badge}
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-expanded={categoriesExpanded}
+            aria-controls="header-all-categories"
+            aria-label={categoriesExpanded ? "Recolher categorias" : "Mostrar todas as categorias"}
+            onClick={() => {
+              setCategoriesExpanded(!categoriesExpanded);
+              setMobileMenuOpen(false);
+            }}
+            className="flex shrink-0 items-center gap-1.5 rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-2 font-semibold text-orange-400 transition-colors hover:bg-orange-500/20 hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            Todas as Peças
-          </Link>
-
-          <span className="text-zinc-700">|</span>
-
-          {navCategories.map((cat) => (
-            <Link
-              key={cat.href}
-              href={cat.href}
-              className="text-zinc-300 hover:text-white px-3 py-1.5 rounded hover:bg-white/5 transition-colors flex items-center gap-1"
-            >
-              {cat.name}
-              {cat.badge && (
-                <span className="bg-[#FF6B00] text-black text-[9px] font-extrabold px-1 py-0.2 rounded-sm ml-0.5">
-                  {cat.badge}
-                </span>
-              )}
-            </Link>
-          ))}
+            {categoriesExpanded ? "Recolher" : "Ver todas"}
+            <ChevronDown aria-hidden="true" className={`size-3.5 transition-transform motion-reduce:transition-none ${categoriesExpanded ? "rotate-180" : ""}`} />
+          </button>
         </div>
-      </div>
+        <div id="header-all-categories" hidden={!categoriesExpanded} className="absolute inset-x-0 top-full z-50 border-y border-white/10 bg-[#12151D] shadow-2xl">
+          <div className="max-w-7xl mx-auto max-h-[50svh] overflow-y-auto px-4 py-4 sm:px-6">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {navCategories.map((cat) => (
+                <Link
+                  key={cat.href}
+                  href={cat.href}
+                  onClick={() => setCategoriesExpanded(false)}
+                  className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-3 text-xs font-medium text-zinc-300 transition-colors hover:border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                >
+                  {cat.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </nav>
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (

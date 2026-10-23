@@ -1,5 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Product, ProductImage } from "@/lib/types";
+import { getCategories } from "@/lib/catalog/categories";
+import { getCatalogCollection, type CatalogCollectionSlug } from "@/lib/catalog/collections";
 
 export async function getCatalogFilterOptions() {
   const brands = new Set<string>();
@@ -29,6 +31,7 @@ export async function getCatalogFilterOptions() {
 export interface ProductFilters {
   query?: string;
   categoryId?: number;
+  collection?: CatalogCollectionSlug;
   condition?: "NOVO" | "USADO" | "RECONDICIONADO" | "TODOS";
   manufacturer?: string;
   minPrice?: number;
@@ -44,6 +47,7 @@ export async function getProducts(filters: ProductFilters = {}): Promise<{ produ
   const {
     query,
     categoryId,
+    collection,
     condition,
     manufacturer,
     minPrice,
@@ -56,6 +60,17 @@ export async function getProducts(filters: ProductFilters = {}): Promise<{ produ
   } = filters;
 
   try {
+    const selectedCollection = getCatalogCollection(collection);
+    let collectionCategoryIds: number[] | undefined;
+    if (selectedCollection) {
+      const categories = await getCategories();
+      collectionCategoryIds = categories
+        .filter((category) => selectedCollection.categorySlugs.includes(category.slug))
+        .map((category) => category.id);
+      // Uma coleção sem categorias publicadas não deve mostrar o catálogo inteiro.
+      if (collectionCategoryIds.length === 0) return { products: [], total: 0 };
+    }
+
     let supabaseQuery = supabaseAdmin
       .from("produto")
       .select(
@@ -96,6 +111,16 @@ export async function getProducts(filters: ProductFilters = {}): Promise<{ produ
 
     if (categoryId) {
       supabaseQuery = supabaseQuery.eq("grupo_produto_id", categoryId);
+    }
+
+    if (collectionCategoryIds) {
+      supabaseQuery = supabaseQuery.in("grupo_produto_id", collectionCategoryIds);
+    }
+
+    if (selectedCollection?.titleTerms) {
+      supabaseQuery = supabaseQuery.or(
+        selectedCollection.titleTerms.map((term) => `titulo.ilike.%${term}%`).join(",")
+      );
     }
 
     if (condition && condition !== "TODOS") {
