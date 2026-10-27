@@ -257,9 +257,25 @@ test('empty saved cards do not call Asaas; existing cards stay scoped and masked
   }
 });
 
+test('both stores reject new boleto checkouts before stock reservations or gateway calls', async () => {
+  for (const file of ['app/api/checkout/route.ts', '../site_demirdiesel/app/api/checkout/route.ts']) {
+    const admin = { from(table) {
+      assert.equal(table, 'cliente');
+      return { select() { return this; }, eq() { return this; }, maybeSingle: async () => ({ data: {
+        id: 7, user_id: 'user-1', nomerazaosocial: 'TEST USER', cpfcnpj: '11144477735',
+        telefone: '83999990000', email: 'test@example.test',
+      }, error: null }) };
+    } };
+    const handlers = route(file, { user: { id: 'user-1' }, admin, inventory: async () => { throw Error('Stock must not be reserved'); } });
+    const response = await handlers.POST(request({ billingType: 'BOLETO', addressId: 3, items: [{ productId: 9, quantity: 1 }] }));
+    assert.equal(response.status, 400, file);
+    assert.equal((await response.json()).error, 'FORMA_PAGAMENTO_INVALIDA');
+  }
+});
+
 test('transparent card checkout sends card only to Asaas and keeps authoritative totals', async () => {
   const card = { holderName: 'TEST USER', number: '4111111111111111', expiryMonth: '12', expiryYear: '2035', ccv: '123' };
-  for (const billingType of ['PIX', 'BOLETO', 'CREDIT_CARD']) {
+  for (const billingType of ['PIX', 'CREDIT_CARD']) {
     let gatewayPayload; const writes = [];
     const admin = { from(table) {
       const data = table === 'cliente' ? { id: 7, user_id: 'user-1', nomerazaosocial: 'TEST USER', cpfcnpj: '11144477735', telefone: '83999990000', email: 'test@example.test', asaas_customer_id: 'cus_test' }
