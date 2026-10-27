@@ -8,6 +8,7 @@ import { siteConfig } from "@/lib/site-config";
 import {
   AsaasApiError,
   createAsaasCustomer,
+  disableAsaasCustomerNotifications,
   createAsaasPayment,
   findAsaasCustomer,
 } from "@/lib/asaas";
@@ -471,10 +472,13 @@ export async function POST(request: Request) {
             province: addressRow.bairro,
             postalCode: String(addressRow.cep || "").replace(/\D/g, ""),
             externalReference: externalCustomerReference,
-            notificationDisabled: false,
+            notificationDisabled: true,
           }));
 
         asaasCustomerId = asaasCustomer.id;
+      } else if (existingCustomer?.notificationDisabled !== true) {
+        // Disable paid billing messages before creating a charge for an existing customer.
+        await disableAsaasCustomerNotifications(asaasCustomerId);
       }
 
       if (asaasCustomerId !== String(cliente.asaas_customer_id || "").trim()) {

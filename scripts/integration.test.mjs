@@ -15,7 +15,7 @@ function route(file, { env = {}, admin, user = null, revalidatePath = () => {}, 
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
   }).outputText;
   vm.runInNewContext(code, {
-    exports, Buffer, Request, Response, URL, AbortSignal, console, Error,
+    exports, Buffer, Request, Response, URL, URLSearchParams, AbortSignal, console, Error, fetch: fetchMock,
     process: { env },
     require(name) {
       if (name === 'next/server') return { NextResponse: { json: (body, init) => Response.json(body, init) } };
@@ -273,10 +273,27 @@ test('both stores reject new boleto checkouts before stock reservations or gatew
   }
 });
 
+test('both Asaas clients disable billing notifications for new and existing customers', async () => {
+  for (const file of ['lib/asaas.ts', '../site_demirdiesel/lib/asaas.ts']) {
+    const calls = [];
+    const client = route(file, { env: { ASAAS_API_KEY: 'test-key', ASAAS_ENVIRONMENT: 'sandbox' }, fetchMock: async (url, init) => {
+      calls.push({ url, method: init.method, body: JSON.parse(init.body) });
+      return Response.json({ id: 'cus_test', notificationDisabled: true });
+    } });
+    await client.createAsaasCustomer({ name: 'Test', notificationDisabled: false });
+    await client.disableAsaasCustomerNotifications('cus_test');
+    assert.equal(calls[0].method, 'POST');
+    assert.equal(calls[0].body.notificationDisabled, true);
+    assert.equal(calls[1].method, 'PUT');
+    assert.ok(calls[1].url.endsWith('/customers/cus_test'));
+    assert.deepEqual(calls[1].body, { notificationDisabled: true });
+  }
+});
+
 test('transparent card checkout sends card only to Asaas and keeps authoritative totals', async () => {
   const card = { holderName: 'TEST USER', number: '4111111111111111', expiryMonth: '12', expiryYear: '2035', ccv: '123' };
   for (const billingType of ['PIX', 'CREDIT_CARD']) {
-    let gatewayPayload; const writes = [];
+    let gatewayPayload; let notificationsDisabled = false; const writes = [];
     const admin = { from(table) {
       const data = table === 'cliente' ? { id: 7, user_id: 'user-1', nomerazaosocial: 'TEST USER', cpfcnpj: '11144477735', telefone: '83999990000', email: 'test@example.test', asaas_customer_id: 'cus_test' }
         : table === 'cliente_endereco' ? { id: 3, cliente_id: 7, cep: '58108152', numero: '10' }
@@ -286,7 +303,8 @@ test('transparent card checkout sends card only to Asaas and keeps authoritative
     }, async rpc(name, payload) { writes.push(payload); if(name==='fn_start_checkout'){assert.equal(payload.p_total,200);return {data:{orderId:42,started:true},error:null};} if(name==='fn_checkout_sending'||name==='fn_checkout_bind')return {data:true,error:null};throw Error(`Unexpected RPC ${name}`); } };
     const handlers = route('app/api/checkout/route.ts', { user: { id: 'user-1' }, admin, asaas: {
       findAsaasCustomer: async () => ({ id: 'cus_test' }),
-      createAsaasPayment: async payload => { gatewayPayload = payload; return { id: 'pay_test', status: 'PENDING', billingType }; },
+      disableAsaasCustomerNotifications: async id => { assert.equal(id, 'cus_test'); notificationsDisabled = true; },
+      createAsaasPayment: async payload => { assert.equal(notificationsDisabled, true); gatewayPayload = payload; return { id: 'pay_test', status: 'PENDING', billingType }; },
     } });
     const response = await handlers.POST(request({ checkoutAttemptId:'10000000-0000-4000-8000-000000000001',transparent: true, billingType, addressId: 3, items: [{ productId: 9, quantity: 2, price: 1 }], card: billingType === 'CREDIT_CARD' ? card : undefined }));
     assert.equal(response.status, 200);
