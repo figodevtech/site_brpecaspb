@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -10,47 +10,17 @@ import {
   ShoppingBag,
   ArrowRight,
   ShieldCheck,
-  Truck,
   ArrowLeft,
 } from "lucide-react";
 import { useCartContext } from "@/components/providers/CartProvider";
 import { formatPrice } from "@/lib/utils";
-import { calculateShipping } from "@/lib/shipping";
-import { ShippingOption } from "@/lib/types";
+import { ShippingSimulator } from "@/components/product/ShippingSimulator";
 import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, clearCart, subtotal, totalItems, isLoaded } = useCartContext();
 
-  const [cep, setCep] = useState("");
-  const [shippingOptions, setShippingOptions] = useState<ShippingOption[] | null>(null);
-  const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null);
-  const [shippingLoading, setShippingLoading] = useState(false);
-  const [shippingError, setShippingError] = useState("");
-
-  const handleCalculateShipping = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setShippingError("");
-    const clean = cep.replace(/\D/g, "");
-    if (clean.length !== 8) {
-      setShippingError("Digite um CEP válido com 8 dígitos.");
-      return;
-    }
-    setShippingLoading(true);
-    try {
-      const opts = await calculateShipping({ cep: clean, subtotal });
-      setShippingOptions(opts);
-      setSelectedShipping(opts[0]);
-    } catch (err) {
-      setShippingError(err instanceof Error ? err.message : "Erro ao calcular frete.");
-    } finally {
-      setShippingLoading(false);
-    }
-  };
-
-  const shippingCost = selectedShipping?.preco || 0;
-  const grandTotal = subtotal + shippingCost;
+  const grandTotal = subtotal;
 
   if (!isLoaded) return <div role="status" className="container mx-auto px-4 py-16">Carregando seu carrinho...</div>;
 
@@ -211,59 +181,7 @@ export default function CartPage() {
                 Resumo da Compra
               </h3>
 
-              {/* Cálculo de Frete no Carrinho */}
-              <div>
-                <Label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 mb-1.5 flex items-center gap-1.5">
-                  <Truck className="w-4 h-4 text-[#FF6B00]" />
-                  Calcular Frete
-                </Label>
-                <form onSubmit={handleCalculateShipping} className="flex gap-2">
-                  <Input
-                    type="text"
-                    value={cep}
-                    onChange={(e) => setCep(e.target.value)}
-                    placeholder="CEP de entrega"
-                    maxLength={9}
-                    className="flex-1 bg-zinc-50 border border-zinc-300 rounded-xl px-3 py-2 text-xs text-zinc-900 focus:outline-none focus:border-[#FF6B00]"
-                  />
-                  <Button
-                    type="submit"
-                    disabled={shippingLoading}
-                    className="bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold px-3 py-2 rounded-xl"
-                  >
-                    {shippingLoading ? "..." : "Ok"}
-                  </Button>
-                </form>
-                {shippingError && (
-                  <p className="text-[11px] text-red-500 mt-1">{shippingError}</p>
-                )}
-
-                {shippingOptions && (
-                  <RadioGroup className="mt-3 space-y-1.5" value={selectedShipping?.id || ""} onValueChange={(id) => setSelectedShipping(shippingOptions.find(option => option.id === id) || null)} aria-label="Opções de entrega">
-                    {shippingOptions.map((opt) => (
-                      <Label
-                        key={opt.id}
-                        className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
-                          selectedShipping?.id === opt.id
-                            ? "border-[#FF6B00] bg-orange-50/50"
-                            : "border-zinc-200 hover:bg-zinc-50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <RadioGroupItem value={opt.id} aria-label={opt.nome} />
-                          <div>
-                            <span className="font-semibold text-zinc-900 block">{opt.nome}</span>
-                            <span className="text-[10px] text-zinc-500">{opt.prazo}</span>
-                          </div>
-                        </div>
-                        <span className="font-black text-zinc-900">
-                          {opt.preco === 0 ? "GRÁTIS" : formatPrice(opt.preco)}
-                        </span>
-                      </Label>
-                    ))}
-                  </RadioGroup>
-                )}
-              </div>
+              <ShippingSimulator productIds={items.map(item=>item.produto.id)}/>
 
               {/* Valores Totais */}
               <div className="space-y-2 pt-3 border-t border-zinc-100 text-xs">
@@ -274,15 +192,7 @@ export default function CartPage() {
                 <div className="flex justify-between text-zinc-600">
                   <span>Frete estimado:</span>
                   <span className="font-bold text-zinc-900">
-                    {selectedShipping ? (
-                      selectedShipping.preco === 0 ? (
-                        <span className="text-emerald-700">Grátis (Retirada)</span>
-                      ) : (
-                        formatPrice(selectedShipping.preco)
-                      )
-                    ) : (
-                      "A calcular"
-                    )}
+                    A combinar com a loja
                   </span>
                 </div>
                 <div className="flex justify-between text-base font-black text-zinc-950 pt-2 border-t border-zinc-100">
@@ -316,6 +226,3 @@ export default function CartPage() {
     </div>
   );
 }
-
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";

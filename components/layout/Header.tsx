@@ -225,7 +225,8 @@ export function Header({ categories = [] }: { categories?: ProductCategory[] }) 
               ))}
             </div>
           </div>
-          <button
+          <Button
+            variant="ghost"
             type="button"
             aria-expanded={categoriesExpanded}
             aria-controls="header-all-categories"
@@ -238,7 +239,7 @@ export function Header({ categories = [] }: { categories?: ProductCategory[] }) 
           >
             {categoriesExpanded ? "Recolher" : "Ver todas"}
             <ChevronDown aria-hidden="true" className={`size-3.5 transition-transform motion-reduce:transition-none ${categoriesExpanded ? "rotate-180" : ""}`} />
-          </button>
+          </Button>
         </div>
         <div id="header-all-categories" hidden={!categoriesExpanded} className="absolute inset-x-0 top-full z-50 border-y border-white/10 bg-[#12151D] shadow-2xl">
           <div className="max-w-7xl mx-auto max-h-[50svh] overflow-y-auto px-4 py-4 sm:px-6">

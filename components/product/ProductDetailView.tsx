@@ -1,23 +1,22 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { ProductImageCarousel } from "./ProductImageCarousel";
 import Link from "next/link";
 import {
   ShieldCheck,
   CheckCircle2,
-  Truck,
   ShoppingCart,
   Heart,
   MessageCircle,
   FileCheck,
-  MapPin,
 } from "lucide-react";
-import { Product, ShippingOption } from "@/lib/types";
+import { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/utils";
 import { useCartContext } from "@/components/providers/CartProvider";
 import { useWishlistContext } from "@/components/providers/WishlistProvider";
-import { calculateShipping } from "@/lib/shipping";
+import { ProductPaymentTerms } from "./ProductPaymentTerms";
+import { ShippingSimulator } from "./ShippingSimulator";
 import { siteConfig } from "@/lib/site-config";
 import { Button } from "@/components/ui/button";
 
@@ -29,36 +28,11 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
   const { addItem } = useCartContext();
   const { isFavorite, toggleFavorite } = useWishlistContext();
 
-  // Cálculo de Frete
-  const [cepInput, setCepInput] = useState("");
-  const [shippingOptions, setShippingOptions] = useState<ShippingOption[] | null>(null);
-  const [shippingLoading, setShippingLoading] = useState(false);
-  const [shippingError, setShippingError] = useState("");
-
   const price = product.preco_site ?? product.precovenda;
   const hasPrice = typeof price === "number" && price > 0;
   const isUsed = product.conservacao === "USADO";
   const favorited = isFavorite(product.id);
   const inStock = product.estoque > 0;
-
-  const handleCalculateShipping = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setShippingError("");
-    const clean = cepInput.replace(/\D/g, "");
-    if (clean.length !== 8) {
-      setShippingError("Digite um CEP válido com 8 dígitos.");
-      return;
-    }
-    setShippingLoading(true);
-    try {
-      const opts = await calculateShipping({ cep: clean, subtotal: price });
-      setShippingOptions(opts);
-    } catch (err) {
-      setShippingError(err instanceof Error ? err.message : "Erro ao calcular frete.");
-    } finally {
-      setShippingLoading(false);
-    }
-  };
 
   const whatsappMessage = hasPrice
     ? `Olá! Tenho interesse no produto *${product.titulo}* (Código: #${product.id}, Valor: ${formatPrice(price)}). Poderiam tirar uma dúvida sobre compatibilidade e envio?`
@@ -186,9 +160,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
                         à vista no Pix
                       </span>
                     </div>
-                    <p className="text-xs text-zinc-600 mt-1">
-                      ou em até <strong className="text-zinc-900">12x de {formatPrice(price / 12)}</strong> no cartão de crédito
-                    </p>
+                    <div className="mt-2"><ProductPaymentTerms productId={product.id} price={price}/></div>
                   </div>
                 ) : (
                   <div className="mt-6 p-5 rounded-2xl bg-orange-50/60 border border-orange-200">
@@ -248,59 +220,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
                   )}
                 </div>
 
-                {/* Calculadora de Frete por CEP */}
-                <div className="mt-8 pt-6 border-t border-zinc-200">
-                  <h4 className="text-xs font-black uppercase tracking-wider text-zinc-800 mb-2 flex items-center gap-1.5">
-                    <Truck className="w-4 h-4 text-[#FF6B00]" />
-                    Simular Frete e Prazo de Entrega
-                  </h4>
-
-                  <form onSubmit={handleCalculateShipping} className="flex gap-2 max-w-sm">
-                    <Input
-                      type="text"
-                      value={cepInput}
-                      onChange={(e) => setCepInput(e.target.value)}
-                      placeholder="Digite seu CEP (ex: 58108-152)"
-                      maxLength={9}
-                      className="flex-1 bg-zinc-50 border border-zinc-300 rounded-xl px-3.5 py-2 text-xs text-zinc-900 focus:outline-none focus:border-[#FF6B00]"
-                    />
-                    <Button
-                      type="submit"
-                      disabled={shippingLoading}
-                      className="bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold px-4 rounded-xl"
-                    >
-                      {shippingLoading ? "Calculando..." : "Calcular"}
-                    </Button>
-                  </form>
-
-                  {shippingError && (
-                    <p className="text-xs text-red-600 mt-2 font-medium">{shippingError}</p>
-                  )}
-
-                  {shippingOptions && (
-                    <div className="mt-3 space-y-2 border border-zinc-200 rounded-xl p-3 bg-zinc-50">
-                      {shippingOptions.map((opt) => (
-                        <div
-                          key={opt.id}
-                          className="flex items-center justify-between text-xs py-1.5 border-b border-zinc-200/60 last:border-0"
-                        >
-                          <div>
-                            <span className="font-bold text-zinc-900">{opt.nome}</span>
-                            <p className="text-[11px] text-zinc-500">{opt.prazo}</p>
-                          </div>
-                          <span className="font-black text-zinc-900">
-                            {opt.preco === 0 ? "GRÁTIS" : formatPrice(opt.preco)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="mt-2 text-[11px] text-zinc-500 flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-[#FF6B00]" />
-                    <span>Retirada grátis disponível na loja física em Cabedelo/PB.</span>
-                  </div>
-                </div>
+                <div className="mt-8"><ShippingSimulator productIds={[product.id]}/></div>
               </div>
             </div>
           </div>
@@ -333,5 +253,3 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
     </div>
   );
 }
-
-import { Input } from "@/components/ui/input";

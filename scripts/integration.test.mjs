@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const root = new URL('../', import.meta.url);
 
 // Run the actual route handlers with isolated environment and service doubles.
-function route(file, { env = {}, admin, user = null, revalidatePath = () => {}, fetchMock, asaas = {}, inventory = async () => ({reserved:true}) } = {}) {
+function route(file, { env = {}, admin, user = null, revalidatePath = () => {}, fetchMock, asaas = {}, inventory = async () => ({reserved:true}), policy } = {}) {
   const exports = {};
   const code = ts.transpileModule(fs.readFileSync(new URL(file, root), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
@@ -29,6 +29,12 @@ function route(file, { env = {}, admin, user = null, revalidatePath = () => {}, 
       if (name === '@/lib/supabase/server') return { createClient: async () => ({ auth: { getUser: async () => ({ data: { user } }) } }) };
       if (name === '@/lib/auth-utils') return route('lib/auth-utils.ts');
       if (name === '@/lib/checkout-card') return route('lib/checkout-card.ts');
+      if (name === '@/lib/melhor-envio-oauth') return route('lib/melhor-envio-oauth.ts',{env,admin,fetchMock});
+      if (name === '@/lib/asaas-fees') return {getCardFees:async()=>({operationValue:0.5,one:2,six:4,twelve:6})};
+      if (name === '@/lib/shipping-quote') return route('lib/shipping-quote.ts',{env,admin,policy,fetchMock});
+      if (name === '@/lib/checkout-policy') return route('lib/checkout-policy.ts');
+      if (name === '@/lib/erp-checkout-policy') return {getCheckoutPolicy:async(ids=[])=>({policies:Object.fromEntries(ids.map(id=>[String(id),policy||route('lib/checkout-policy.ts').defaultCheckoutPolicy])),revision:'test',available:true,originCep:'58000000'})};
+      if (name === '@/lib/save-checkout-card') return route('lib/save-checkout-card.ts',{admin});
       if (name === '@/lib/payment-methods') return route('lib/payment-methods.ts');
       if (name === '@/lib/site-config') return { siteConfig: { url: 'https://www.brpecaspb.com.br', address: { full: 'Loja' } } };
       if (name === '@/lib/shipping') return { isPickupEligible: () => false };
@@ -317,6 +323,130 @@ test('transparent card checkout sends card only to Asaas and keeps authoritative
     assert.equal(JSON.stringify(writes).includes('ccv'), false);
     assert.equal(JSON.stringify(result).includes(card.number), false);
   }
+});
+
+test('both checkouts enforce ERP installments, debit redirect, explicit card consent and authoritative interest',async()=>{
+ const credit={holderName:'TEST USER',number:'4111111111111111',expiryMonth:'12',expiryYear:'2035',ccv:'123'};
+ for(const file of ['app/api/checkout/route.ts','../site_demirdiesel/app/api/checkout/route.ts'])for(const mode of ['credit','installments','debit','save','changed','shipping','shipping-changed']){
+  let payload;const cardWrites=[];let stockReservations=0;
+  const admin={from(table){
+   const data=table==='cliente'?{id:7,user_id:'user-1',nomerazaosocial:'TEST USER',cpfcnpj:'11144477735',telefone:'83999990000',email:'test@example.test',asaas_customer_id:'cus_test'}:table==='cliente_endereco'?{id:3,cliente_id:7,cep:'58108152',numero:'10'}:table==='produto'?[{id:9,titulo:'Peca',precovenda:100,estoque:3,visible:true,is_deleted:false}]:null;
+   return {select(){return this;},eq(){return this;},not(){return this;},in(){return this;},update(){return this;},insert(value){assert.equal(table,'customer_payment_card');cardWrites.push(value);return Promise.resolve({error:null});},maybeSingle:async()=>({data,error:null}),then(resolve){return Promise.resolve({data,error:null,count:0}).then(resolve);}};
+  },async rpc(name,args){if(name==='fn_start_checkout'){assert.equal(args.p_total,mode==='installments'?204.17:mode.startsWith('shipping')?230:200);return {data:{orderId:42,started:true},error:null};}return {data:true,error:null};}};
+  const handler=route(file,{env:mode.startsWith('shipping')?{MELHOR_ENVIO_TOKEN:'test-token',MELHOR_ENVIO_ENVIRONMENT:'production',NEXT_PUBLIC_COMPANY_EMAIL:'test@example.test'}:{},fetchMock:async()=>Response.json([{id:1,name:'PAC',company:{name:'Correios'},price:'1.00',custom_price:'30.00',custom_delivery_time:5}]),user:{id:'user-1'},admin,policy:{maxInstallments:3,minimumInstallment:5,interestFreeInstallments:1,monthlyInterestPercent:0,feeMode:'incremental',shippingPackage:{weight:1,width:15,height:10,length:20},shippingRates:[]},inventory:async()=>{stockReservations++;return {reserved:true};},asaas:{
+   findAsaasCustomer:async()=>({id:'cus_test',notificationDisabled:true}),
+   createAsaasPayment:async body=>{payload=body;return {id:'pay_test',customer:'cus_test',value:body.totalValue||body.value,billingType:'CREDIT_CARD',status:'CONFIRMED',invoiceUrl:'https://www.asaas.com/i/test',creditCard:{creditCardToken:'token-safe',creditCardBrand:'VISA'}};},
+  }});
+  const response=await handler.POST(request({checkoutAttemptId:'10000000-0000-4000-8000-000000000001',addressId:3,items:[{productId:9,quantity:2}],billingType:mode==='debit'?'DEBIT_CARD':'CREDIT_CARD',transparent:true,installmentCount:mode==='installments'||mode==='changed'?3:1,expectedTotal:mode==='installments'?204.17:mode.startsWith('shipping')?230:200,shippingServiceId:mode.startsWith('shipping')?1:undefined,expectedShipping:mode==='shipping-changed'?29:30,saveCard:mode==='save',card:credit}));
+  if(mode==='changed'||mode==='shipping-changed'){assert.equal(response.status,409);assert.equal(payload,undefined);assert.equal(stockReservations,0);continue;}
+  assert.equal(response.status,200,file+mode);const result=await response.json();
+  if(mode==='debit'){assert.equal(payload.billingType,'CREDIT_CARD');assert.equal(payload.creditCard,undefined);assert.equal(result.directPayment,false);assert.ok(result.url);}
+  else assert.equal(result.directPayment,true);
+  if(mode==='installments'){assert.equal(payload.installmentCount,3);assert.equal(payload.totalValue,204.17);assert.equal(payload.value,undefined);assert.equal(result.interest,4.17);}
+  else assert.equal(payload.installmentCount,undefined);
+  if(mode==='shipping')assert.equal(payload.value,230);
+  assert.equal(cardWrites.length,mode==='save'?1:0);
+  assert.equal(JSON.stringify(cardWrites).includes(credit.number),false);assert.equal(JSON.stringify(cardWrites).includes('ccv'),false);
+  if(mode==='save'){assert.equal(result.cardSaved,true);assert.equal(cardWrites[0].provider_card_token,'token-safe');assert.equal(cardWrites[0].last_four,'1111');}
+ }
+});
+
+test('installment aggregation uses the full purchase and refunds the entire plan in both clients',async()=>{
+ for(const file of ['lib/asaas.ts','../site_demirdiesel/lib/asaas.ts']){
+  const calls=[];let refunded=false;
+  const rows=()=>[1,2,3].map(n=>({id:`pay_${n}`,installment:'plan_1',installmentNumber:n,customer:'cus_1',externalReference:'42',value:n===3?69.34:69.33,billingType:'CREDIT_CARD',status:refunded?'REFUNDED':'CONFIRMED'}));
+  const client=route(file,{env:{ASAAS_API_KEY:'test-key'},fetchMock:async(url,init)=>{calls.push([url,init.method]);return Response.json(url.endsWith('/refund')?(refunded=true,{}):url.includes('/installments/')?{data:rows(),hasMore:false}:rows()[0]);}});
+  const payment=await client.getAsaasPayment('pay_2');assert.equal(payment.value,208);assert.equal(payment.id,'pay_1');
+  const result=await client.refundAsaasPayment('pay_1','Teste');assert.equal(result.status,'REFUNDED');
+  assert.ok(calls.some(([url,method])=>url.endsWith('/installments/plan_1/refund')&&method==='POST'));
+  assert.equal(calls.some(([url,method])=>url.includes('/payments/pay_1/refund')&&method==='POST'),false);
+ }
+});
+
+test('installment quote defaults to cash and rounds cents without inventing shipping rates',()=>{
+ const {installmentQuote,installmentQuoteForItems,defaultCheckoutPolicy,checkoutPolicySchema}=route('lib/checkout-policy.ts');
+ assert.equal(defaultCheckoutPolicy.maxInstallments,1);assert.equal(defaultCheckoutPolicy.shippingRates.length,0);
+ assert.throws(()=>installmentQuote(100,2,defaultCheckoutPolicy));
+ const quote=installmentQuote(100,3,{...defaultCheckoutPolicy,maxInstallments:3});
+ assert.equal(quote.installment,33.33);assert.equal(quote.lastInstallment,33.34);assert.equal(quote.total,100);
+ assert.equal(checkoutPolicySchema.safeParse({...defaultCheckoutPolicy,shippingRates:[{name:'PAC',cepStart:'99999999',cepEnd:'00000000',price:30,businessDays:5}]}).success,false);
+ const items=[{productId:1,total:100},{productId:2,total:200}];
+ assert.throws(()=>installmentQuoteForItems(items,3,{'1':{...defaultCheckoutPolicy,maxInstallments:3}}),'an unconfigured item keeps the whole cart at cash');
+ const combined=installmentQuoteForItems(items,3,{'1':{...defaultCheckoutPolicy,maxInstallments:3,feeMode:'incremental'},'2':{...defaultCheckoutPolicy,maxInstallments:3}}, {operationValue:0.5,one:2,six:4,twelve:6});
+ assert.equal(combined.total,302.03);assert.equal(combined.interest,2.03,'interest is calculated individually, not applied to the interest-free product');
+});
+
+test('Asaas pass-through modes gross up fees, respect the free limit and share mixed-cart costs',()=>{
+ const {installmentQuote,installmentQuoteForItems,defaultCheckoutPolicy}=route('lib/checkout-policy.ts');
+ const fees={operationValue:0.5,one:2,six:4,twelve:6};
+ const policy={...defaultCheckoutPolicy,maxInstallments:12};
+ assert.equal(installmentQuote(100,3,{...policy,monthlyInterestPercent:20}).total,100,'obsolete monthly interest is never charged');
+ assert.equal(installmentQuote(100,1,{...policy,feeMode:'incremental'},fees).total,100);
+ assert.equal(installmentQuote(100,1,{...policy,feeMode:'full'},fees).total,102.56);
+ const full=installmentQuote(100,3,{...policy,feeMode:'full'},fees);
+ assert.equal(full.total,104.69);
+ assert.ok(full.total*(1-.04)-.5>=100,'gross-up covers fees on the final charged amount');
+ assert.throws(()=>installmentQuote(100,3,{...policy,feeMode:'full'}),'missing fees cannot silently remove the surcharge');
+ assert.equal(installmentQuote(100,3,{...policy,feeMode:'incremental',interestFreeInstallments:3},fees).total,100);
+ const items=[{productId:1,total:100},{productId:2,total:100}];
+ const combined=installmentQuoteForItems(items,3,{'1':{...policy,feeMode:'full'},'2':{...policy,feeMode:'full'}},fees,30);
+ assert.equal(combined.total,240.11,'the operational fee is shared once, not repeated per product, and includes freight');
+});
+
+test('account fees use only current promotions and reject malformed provider responses',async()=>{
+ const card={operationValue:.49,oneInstallmentPercentage:3,upToSixInstallmentsPercentage:4,upToTwelveInstallmentsPercentage:5,discountOneInstallmentPercentage:1,discountUpToSixInstallmentsPercentage:2,discountUpToTwelveInstallmentsPercentage:3};
+ for(const [discountExpiration,one] of [['2000-01-01',3],['2099-01-01',1]]){
+  const client=route('lib/asaas-fees.ts',{asaas:{asaasRequest:async path=>{assert.equal(path,'/myAccount/fees/');return {payment:{creditCard:{...card,discountExpiration}}};}}});
+  assert.equal((await client.getCardFees()).one,one);
+ }
+ await assert.rejects(()=>route('lib/asaas-fees.ts',{asaas:{asaasRequest:async()=>({payment:{creditCard:{...card,operationValue:null}}})}}).getCardFees());
+});
+
+test('shipping uses ERP company origin, unit measurements, authoritative prices and custom carrier values',async()=>{
+ let payload;
+ const admin={from(){return {select(){return this;},in(){return Promise.resolve({data:[{id:9,precovenda:100,visible:true,is_deleted:false}],error:null});}};}};
+ const policy={...route('lib/checkout-policy.ts').defaultCheckoutPolicy,shippingPackage:{weight:1,width:15,height:10,length:20}};
+ const client=route('lib/shipping-quote.ts',{env:{MELHOR_ENVIO_TOKEN:'test',MELHOR_ENVIO_ENVIRONMENT:'production',NEXT_PUBLIC_COMPANY_EMAIL:'test@example.test'},admin,policy,fetchMock:async(url,init)=>{
+  assert.equal(url,'https://melhorenvio.com.br/api/v2/me/shipment/calculate');payload=JSON.parse(init.body);
+  return Response.json([{id:1,name:'PAC',custom_price:'30.00',price:'1.00',custom_delivery_time:5},{id:2,error:'unavailable'}]);
+ }});
+ const result=await client.quoteShipping('58108152',[{productId:9,quantity:2},{productId:9,quantity:1}]);
+ assert.equal(payload.from.postal_code,'58000000');assert.equal(payload.to.postal_code,'58108152');
+ assert.equal(payload.products[0].quantity,3);assert.equal(payload.products[0].insurance_value,100);assert.equal(payload.products[0].weight,1);
+ assert.equal(result.options.length,1);assert.equal(result.options[0].price,30);
+ const missing=route('lib/shipping-quote.ts',{env:{MELHOR_ENVIO_TOKEN:'test',MELHOR_ENVIO_ENVIRONMENT:'production'},admin,policy:{...policy,shippingPackage:null}});
+ await assert.rejects(()=>missing.quoteShipping('58108152',[{productId:9,quantity:1}]),/peso e dimens/);
+ const manual=route('app/api/shipping/quote/route.ts');
+ assert.equal((await (await manual.POST(request({cep:'58108152',items:[{productId:9,quantity:1}]}))).json()).manual,true);
+ assert.equal((await manual.POST(request({cep:'58108152',items:[{productId:9,quantity:-1}]}))).status,422);
+});
+
+test('partial refunds and conflicting installment customers never become a full refund',async()=>{
+ const payment={id:'pay_1',customer:'cus_1',externalReference:'42',installment:'plan_1',installmentNumber:1,billingType:'CREDIT_CARD',status:'REFUNDED',value:50};
+ for(const file of ['lib/asaas.ts','../site_demirdiesel/lib/asaas.ts'])for(const conflict of [false,true]){
+ const client=route(file,{env:{ASAAS_API_KEY:'test-key'},fetchMock:async url=>Response.json(url.includes('/installments/')?{data:[payment,{...payment,id:'pay_2',installmentNumber:2,status:'CONFIRMED',customer:conflict?'foreign':'cus_1'}]}:payment)});
+ if(conflict)await assert.rejects(()=>client.getAsaasPayment('pay_1'));
+ else assert.equal((await client.getAsaasPayment('pay_1')).status,'PARTIALLY_REFUNDED');
+ }
+});
+
+test('card installments change attempt identity without changing legacy cash fingerprints',()=>{
+ const {attemptIdentity}=route('lib/checkout-attempt.ts');
+ const id='10000000-0000-4000-8000-000000000001',items=new Map([[9,2]]);
+ const old=require('node:crypto').createHash('sha256').update(JSON.stringify([7,'3','delivery','CREDIT_CARD',null,[[9,2]]])).digest('hex');
+ assert.equal(attemptIdentity(id,7,3,'delivery','CREDIT_CARD',null,items).hash,old);
+ assert.notEqual(attemptIdentity(id,7,3,'delivery','CREDIT_CARD',null,items,{installmentCount:3,debit:false}).hash,old);
+});
+
+test('a removed installment plan can only reuse a previously verified payment binding',async()=>{
+ for(const file of ['lib/asaas.ts','../site_demirdiesel/lib/asaas.ts']){
+ const client=route(file,{env:{ASAAS_API_KEY:'test-key'},fetchMock:async url=>url.includes('/installments/')?Response.json({errors:[]},{status:404}):Response.json({id:'pay_1',customer:'cus_1',externalReference:'42',value:50,installment:'plan_1',deleted:true,status:'PENDING',billingType:'CREDIT_CARD'})});
+ const payment=await client.getAsaasPayment('pay_1');assert.equal(payment.installmentGroupDeleted,true);
+ const admin={from(){return {select(){return this;},eq(){return this;},maybeSingle:async()=>({data:{payment_id:'pay_1',expected_customer:'cus_1',phase:'BOUND'},error:null})};},rpc(){throw Error('A deleted plan must not overwrite its original amount');}};
+ const {bindCheckoutPayment}=route('lib/checkout-attempt.ts',{admin});
+ assert.equal(await bindCheckoutPayment(42,payment),true);
+ await assert.rejects(()=>bindCheckoutPayment(42,{...payment,id:'pay_foreign'}));
+ }
 });
 
 test('payment instructions require ownership and retrieve only the stored gateway payment', async () => {

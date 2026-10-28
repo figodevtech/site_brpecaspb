@@ -112,7 +112,7 @@ export function ProductCard({ product }: ProductCardProps) {
                 </span>
               </div>
               <p className="text-[11px] text-zinc-500 mt-0.5">
-                ou até <span className="font-semibold text-zinc-800">12x de {formatPrice(price / 12)}</span> no cartão
+                Consulte as condições de pagamento no produto
               </p>
             </div>
           ) : (
