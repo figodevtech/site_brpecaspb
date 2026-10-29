@@ -1,3 +1,4 @@
+import { withCardPaymentTerms } from "./card-payment-terms";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Product, ProductImage } from "@/lib/types";
 import { getCategories } from "@/lib/catalog/categories";
@@ -43,7 +44,7 @@ export interface ProductFilters {
   offset?: number;
 }
 
-export async function getProducts(filters: ProductFilters = {}): Promise<{ products: Product[]; total: number }> {
+async function loadProducts(filters: ProductFilters = {}): Promise<{ products: Product[]; total: number }> {
   const {
     query,
     categoryId,
@@ -319,4 +320,9 @@ export async function getProductById(id: number): Promise<Product | null> {
     console.error(`Erro ao buscar produto ${id}:`, err);
     return null;
   }
+}
+
+export async function getProducts(filters:ProductFilters={}){
+ const result=await loadProducts(filters);
+ return {...result,products:await withCardPaymentTerms(result.products,product=>product.preco_site??product.precovenda)};
 }

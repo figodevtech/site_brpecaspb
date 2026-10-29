@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { ProductCardPaymentTerms } from "./ProductCardPaymentTerms";
 import { ProductImageCarousel } from "./ProductImageCarousel";
 import Link from "next/link";
 import { ShoppingCart, Heart, ShieldCheck, Check, AlertTriangle, MessageCircle, Eye } from "lucide-react";
@@ -103,7 +104,7 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="mt-4 pt-3 border-t border-zinc-100 flex flex-col gap-3">
           {hasPrice ? (
             <div>
-              <div className="flex items-baseline gap-2">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <span className="text-lg font-black text-zinc-950">
                   {formatPrice(price)}
                 </span>
@@ -111,9 +112,7 @@ export function ProductCard({ product }: ProductCardProps) {
                   à vista no Pix
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-500 mt-0.5">
-                Consulte as condições de pagamento no produto
-              </p>
+              <ProductCardPaymentTerms productId={Number(product.id)} price={price} initialQuote={product.cardPaymentTerms}/>
             </div>
           ) : (
             <div>

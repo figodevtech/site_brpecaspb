@@ -25,7 +25,6 @@ import {
   Lock,
   ArrowLeft,
   Store,
-  Info,
   QrCode,
   CreditCard,
   Zap,
@@ -47,6 +46,7 @@ import { motion } from "motion/react";
 import { useVirtualKeyboardOpen } from "@/hooks/use-virtual-keyboard";
 import { cepDigits, formatCep, mobileInput } from "@/lib/forms/mobile-inputs";
 import { haptic } from "@/lib/haptics";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import {
   PAYMENT_METHOD_LABELS,
@@ -103,6 +103,7 @@ export default function CheckoutPage() {
   const router = useRouter();
 
   // Endereço
+  const [choosingAddress,setChoosingAddress]=useState(false);
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
@@ -471,6 +472,8 @@ export default function CheckoutPage() {
   };
 
   const finalTotal = paymentMethod==='CREDIT_CARD' ? (terms.quote?.total??subtotal+shippingPrice) : subtotal+shippingPrice;
+  const freightLabel=deliveryMethod==='pickup'?'Retirada grátis':shippingQuote.option?shippingQuote.option.price===0?'Grátis':formatCurrency(shippingPrice):!selectedAddressId?'Selecione o endereço':shippingQuote.busy?'Calculando...':shippingQuote.error?'Cotação indisponível':shippingQuote.result?.manual?'A combinar com a loja':'Selecione o envio';
+  const totalLabel=deliveryMethod==='pickup'?'Total · retirada grátis':shippingQuote.option?shippingPrice===0?'Total · frete grátis':'Total com frete':shippingQuote.result?.manual?'Total · frete a combinar':'Subtotal · frete pendente';
   const canPay = shippingReady && (paymentMethod!=='CREDIT_CARD'||Boolean(terms.quote)) && Boolean(paymentMethod) && !isProcessing && !isWaitingPayment && Boolean(selectedAddressId) && items.length > 0;
   const selectedPaymentOption =
     PAYMENT_OPTIONS.find((option) => option.value === paymentMethod);
@@ -507,54 +510,50 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-5xl px-4 pb-32 pt-3 md:pt-5 lg:pb-10">
-      {/* Top Header Seguro */}
-      <div className="mb-8 flex items-center justify-between pb-2">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/carrinho"
-            className="size-10 shrink-0 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 hover:text-foreground active:scale-95 transition-transform"
-            aria-label="Voltar ao carrinho"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-foreground flex items-center gap-2">
-              <Lock className="w-5 h-5 text-primary" />
-              <span>Checkout Seguro</span>
+    <div className="container mx-auto max-w-6xl px-4 pb-36 pt-3 lg:pb-12">
+      <header className="mb-3 flex min-h-10 items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <Button asChild variant="ghost" size="icon" className="size-9 shrink-0 rounded-xl bg-muted text-muted-foreground">
+            <Link href="/carrinho" aria-label="Voltar ao carrinho">
+              <ArrowLeft className="size-4" aria-hidden="true" />
+            </Link>
+          </Button>
+          <div className="min-w-0">
+            <h1 className="flex items-center gap-1.5 text-base font-extrabold text-foreground sm:text-xl">
+              <Lock className="size-4 shrink-0 text-primary" aria-hidden="true" />
+              Checkout Seguro
             </h1>
-            <span className="text-[11px] text-muted-foreground">BR Peças PB • Asaas</span>
+            <p className="text-[11px] text-muted-foreground">BR Peças PB · Asaas</p>
           </div>
         </div>
-
-        <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-full border border-emerald-600/20">
-          <ShieldCheck className="w-4 h-4" />
-          <span className="hidden sm:inline">Ambiente Criptografado</span>
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-600/20 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+          <ShieldCheck className="size-3.5" aria-hidden="true" />
+          <span className="hidden sm:inline">Ambiente criptografado</span>
           <span className="sm:hidden">Seguro</span>
-        </div>
-      </div>
+        </span>
+      </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="grid min-w-0 grid-cols-1 items-start gap-5 lg:grid-cols-12 lg:gap-6">
         {/* Lado Esquerdo: Endereço & Pagamento */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="min-w-0 divide-y divide-border/70 overflow-hidden rounded-2xl border border-border/80 bg-card lg:col-span-8">
           {/* 1. Endereço de Entrega */}
-          <div className="space-y-4 rounded-2xl bg-card p-6 shadow-lg shadow-slate-900/8 dark:shadow-black/25">
-            <div className="flex items-center justify-between">
+          <div className="min-w-0 space-y-4 p-4 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary font-bold text-xs flex items-center justify-center">
+                <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border text-[11px] font-semibold text-muted-foreground">
                   1
                 </div>
-                <h2 className="font-extrabold text-base text-foreground">Endereço de Entrega</h2>
+                <h2 className="font-extrabold text-base text-foreground">Endereço</h2>
               </div>
 
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setIsAddressDialogOpen(true)}
-                className="text-xs h-10 rounded-xl gap-1 border-dashed px-3"
+                className="h-8 gap-1 rounded-lg border-border/70 px-2.5 text-xs"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Novo Endereço</span>
+                <span>Novo</span>
               </Button>
             </div>
 
@@ -581,18 +580,20 @@ export default function CheckoutPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Collapsible open={choosingAddress} onOpenChange={setChoosingAddress} className="space-y-3">
+                {selectedAddress&&<div className="flex items-start gap-3"><MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground"/><div className="min-w-0 flex-1 space-y-1"><p className="break-words text-sm font-medium">{selectedAddress.logradouro}, {selectedAddress.numero}</p>{selectedAddress.complemento&&<p className="text-xs text-muted-foreground">{selectedAddress.complemento}</p>}<p className="text-xs leading-relaxed text-muted-foreground">{selectedAddress.bairro} · {selectedAddress.cidade} / {selectedAddress.estado}<br/>CEP {formatCep(selectedAddress.cep)}</p></div><CollapsibleTrigger asChild><Button type="button" variant="ghost" size="sm" className="h-8 shrink-0 px-2 text-xs" disabled={isProcessing||isWaitingPayment}>{choosingAddress?'Fechar':'Alterar'}</Button></CollapsibleTrigger></div>}
+                <CollapsibleContent className="grid gap-2 pt-1 sm:grid-cols-2">
                 {addresses.map((addr) => {
                   const isSelected = selectedAddressId === addr.id;
                   return (
                     <Button variant="ghost" size="sm"
                       type="button"
                       key={addr.id}
-                      onClick={() => selectAddress(addr)}
+                      onClick={() => {selectAddress(addr);setChoosingAddress(false);}}
                       aria-pressed={isSelected}
-                      className={`h-auto min-h-24 block whitespace-normal w-full text-left p-4 rounded-xl border-2 transition-all duration-150 cursor-pointer text-xs relative active:scale-[0.99] ${
+                      className={`h-auto min-h-20 block whitespace-normal w-full text-left p-3 rounded-xl border-2 transition-all duration-150 cursor-pointer text-xs relative active:scale-[0.99] ${
                         isSelected
-                          ? "border-primary bg-primary/5 shadow-2xs"
+                          ? "border-primary/70 bg-primary/5 shadow-2xs"
                           : "border-border/80 hover:border-slate-400 bg-card"
                       }`}
                     >
@@ -620,62 +621,53 @@ export default function CheckoutPage() {
                     </Button>
                   );
                 })}
-              </div>
+                </CollapsibleContent>
+              </Collapsible>
             )}
           </div>
 
           {/* 2. Forma de recebimento */}
-          <div className="space-y-4 rounded-2xl bg-card p-6 shadow-lg shadow-slate-900/8 dark:shadow-black/25">
+          <div className="min-w-0 space-y-4 p-4 sm:p-6">
             <div className="flex items-center gap-2">
-              <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">2</div>
+              <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border text-[11px] font-semibold text-muted-foreground">2</div>
               <div>
-                <h2 className="text-base font-extrabold text-foreground">Como você quer receber?</h2>
-                <p className="text-xs text-muted-foreground">A disponibilidade considera o endereço selecionado.</p>
+                <h2 className="text-base font-extrabold text-foreground">Entrega</h2>
+
               </div>
             </div>
 
             <RadioGroup value={deliveryMethod} onValueChange={(value) => setDeliveryMethod(value as DeliveryMethod)} className="grid gap-3 sm:grid-cols-2">
-              <Label htmlFor="delivery-method" className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition-colors ${deliveryMethod === "delivery" ? "border-primary bg-primary/5" : "border-border/80 hover:border-primary/40"}`}>
+              <Label htmlFor="delivery-method" className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${deliveryMethod === "delivery" ? "border-primary/70 bg-primary/5" : "border-border/80 hover:border-primary/40"}`}>
                 <RadioGroupItem id="delivery-method" value="delivery" className="mt-0.5" />
-                <span className="grid gap-1">
+                <span className="grid min-w-0 gap-1">
                   <span className="flex items-center gap-2 text-sm font-bold"><Truck className="size-4 text-primary" /> Receber no endereço</span>
-                  <span className="text-xs font-normal leading-relaxed text-muted-foreground">Frete calculado pelo endereço selecionado, quando a integração estiver habilitada.</span>
+                  <span className="text-xs font-normal leading-relaxed text-muted-foreground">Opções e valores abaixo.</span>
                 </span>
               </Label>
 
-              <Label htmlFor="pickup-method" className={`flex items-start gap-3 rounded-xl border-2 p-4 transition-colors ${pickupEligible ? "cursor-pointer" : "cursor-not-allowed opacity-55"} ${deliveryMethod === "pickup" ? "border-primary bg-primary/5" : "border-border/80"}`}>
+              <Label htmlFor="pickup-method" className={`flex items-start gap-3 rounded-xl border p-3 transition-colors ${pickupEligible ? "cursor-pointer" : "cursor-not-allowed opacity-55"} ${deliveryMethod === "pickup" ? "border-primary/70 bg-primary/5" : "border-border/80"}`}>
                 <RadioGroupItem id="pickup-method" value="pickup" disabled={!pickupEligible} className="mt-0.5" />
-                <span className="grid gap-1">
-                  <span className="flex items-center gap-2 text-sm font-bold"><Store className="size-4 text-primary" /> Retirar na BR Peças PB</span>
-                  <span className="text-xs font-normal leading-relaxed text-muted-foreground">Grátis, após a confirmação de que o pedido está pronto.</span>
+                <span className="grid min-w-0 gap-1">
+                  <span className="flex items-center gap-2 text-sm font-bold"><Store className="size-4 text-primary" /> Retirar na loja</span>
+                  <span className="text-xs font-normal leading-relaxed text-muted-foreground">Sem custo de entrega.</span>
                 </span>
               </Label>
             </RadioGroup>
 
-            {pickupEligible ? (
-              <div className="flex gap-2 rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">
-                <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
-                <span><strong className="text-foreground">Local de retirada:</strong> {siteConfig.address.full}</span>
-              </div>
-            ) : (
-              <div className="flex gap-2 rounded-lg border border-dashed px-3 py-2.5 text-xs text-muted-foreground">
-                <Info className="mt-0.5 size-4 shrink-0" />
-                <span>A retirada é liberada para endereços de João Pessoa, Bayeux, Cabedelo, Conde e Santa Rita.</span>
-              </div>
-            )}
+            {deliveryMethod==='pickup'&&<p className="text-xs leading-relaxed text-muted-foreground"><span className="font-medium text-foreground">Retirada:</span> {siteConfig.address.full}. Aguarde a confirmação de que o pedido está pronto.</p>}
+            {!pickupEligible&&<p className="text-xs text-muted-foreground">Retirada indisponível para este endereço.</p>}
+            {deliveryMethod==='delivery'&&!isWaitingPayment&&selectedAddress&&<section className="border-t border-border/70 pt-3" aria-label="Frete para o endereço selecionado"><ShippingChoices quote={shippingQuote} disabled={isProcessing} compact/></section>}
           </div>
 
           {/* 3. Forma de pagamento */}
-          <div className="space-y-4 rounded-2xl bg-card p-6 shadow-lg shadow-slate-900/8 dark:shadow-black/25">
+          <div className="min-w-0 space-y-4 p-4 sm:p-6">
             <div className="flex items-start gap-2">
-              <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary font-bold text-xs flex items-center justify-center">
+              <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border text-[11px] font-semibold text-muted-foreground">
                 3
               </div>
               <div>
                 <h2 className="font-extrabold text-base text-foreground">Forma de pagamento</h2>
-                <p className="text-xs text-muted-foreground">
-                  Escolha como deseja concluir sua compra aqui na loja, com processamento pelo Asaas.
-                </p>
+
               </div>
             </div>
 
@@ -709,7 +701,7 @@ export default function CheckoutPage() {
                 <RadioGroup
                   value={paymentMethod}
                   onValueChange={(value) => setPaymentMethod(value as AsaasBillingType | "DEBIT_CARD")}
-                  className="grid gap-3 md:grid-cols-3"
+                  className="grid gap-2 sm:grid-cols-3"
                 >
                   {PAYMENT_OPTIONS.map((option) => {
                     const Icon = option.icon;
@@ -719,23 +711,24 @@ export default function CheckoutPage() {
                       <Label
                         key={option.value}
                         htmlFor={`payment-${option.value}`}
-                        className={`relative flex cursor-pointer flex-col gap-3 rounded-xl p-4 shadow-sm ring-1 transition-all ${
+                        className={`relative flex min-w-0 cursor-pointer items-center gap-2.5 rounded-xl p-3 pr-8 ring-1 transition-all ${
                           selected
                             ? "bg-primary/5 ring-2 ring-primary"
                             : "bg-card ring-border/70 hover:ring-primary/40"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                            <Icon className="size-5" />
+                          <span className="flex size-6 shrink-0 items-center justify-center text-primary">
+                            <Icon className="size-4" />
                           </span>
                           <RadioGroupItem
                             id={`payment-${option.value}`}
                             value={option.value}
+                            className="absolute right-3 top-1/2 -translate-y-1/2"
                             aria-label={PAYMENT_METHOD_LABELS[option.value]}
                           />
                         </div>
-                        <span className="grid gap-1">
+                        <span className="grid min-w-0 gap-1">
                           <span className="flex flex-wrap items-center gap-2 text-sm font-bold text-foreground">
                             {PAYMENT_METHOD_LABELS[option.value]}
                             {option.badge && (
@@ -748,9 +741,7 @@ export default function CheckoutPage() {
                           <span className="text-xs font-medium text-foreground/80">
                             {option.description}
                           </span>
-                          <span className="text-[11px] font-normal leading-relaxed text-muted-foreground">
-                            {option.detail}
-                          </span>
+
                         </span>
                       </Label>
                     );
@@ -758,27 +749,25 @@ export default function CheckoutPage() {
                 </RadioGroup>
 
                 {paymentMethod === "CREDIT_CARD" && (
-                  <div className="space-y-3 rounded-xl bg-muted/35 p-4 ring-1 ring-border/60">
+                  <div className="space-y-4 border-t border-border/70 pt-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-bold text-foreground">Qual cartão deseja usar?</p>
-                        <p className="text-[11px] text-muted-foreground">Cartões tokenizados com segurança pelo Asaas.</p>
+                        <p className="text-sm font-bold text-foreground">Dados do cartão</p>
+
                       </div>
-                      <Button asChild variant="ghost" size="sm" className="h-8 text-xs">
-                        <Link href="/conta/cartoes">Gerenciar</Link>
-                      </Button>
+                      {savedCards.length>0&&<Button asChild variant="ghost" size="sm" className="h-8 text-xs"><Link href="/conta/cartoes">Gerenciar</Link></Button>}
                     </div>
 
                     {cardsError && <div role="status" className="text-xs text-muted-foreground space-y-2">
                       <p>Não foi possível consultar os cartões salvos. Você pode preencher outro cartão abaixo.</p>
                       <Button type="button" variant="outline" size="sm" onClick={() => void fetchSavedCards()}>Tentar novamente</Button>
                     </div>}
-                    <CheckoutTerms terms={terms} newCard={selectedSavedCardId==='new'} disabled={isProcessing}/>
+
                     {loadingCards ? (
                       <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
                         <Loader2 className="size-4 animate-spin" /> Carregando cartões...
                       </div>
-                    ) : (
+                    ) : savedCards.length>0 ? (
                       <RadioGroup
                         value={selectedSavedCardId}
                         onValueChange={setSelectedSavedCardId}
@@ -817,57 +806,40 @@ export default function CheckoutPage() {
                           </span>
                         </Label>
                       </RadioGroup>
-                    )}
-                    {selectedSavedCardId === "new" && <CheckoutCardFields value={card} onChange={setCard} disabled={isProcessing} saveCard={terms.saveCard} />}
+                    ) : null}
+                    {!loadingCards&&selectedSavedCardId === "new" && <CheckoutCardFields value={card} onChange={setCard} disabled={isProcessing} saveCard={terms.saveCard} compact/>}
+                    {!loadingCards&&<CheckoutTerms terms={terms} newCard={selectedSavedCardId==='new'} disabled={isProcessing} compact/>}
                   </div>
                 )}
 
-                <div className="flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">
-                  <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-                  <span>
-                    A BR Peças PB n&atilde;o armazena os dados do seu cart&atilde;o. O pagamento &eacute; processado diretamente pelo Asaas.
-                  </span>
-                </div>
 
-                {deliveryMethod==='delivery'&&<section className="space-y-3 rounded-xl border p-4"><h3 className="text-sm font-semibold">Frete para o endereço selecionado</h3>{selectedAddress?<ShippingChoices quote={shippingQuote} disabled={isProcessing}/>:<p className="text-sm text-muted-foreground">Selecione o endereço para calcular o frete.</p>}</section>}
 
-                <Button
-                  size="lg"
-                  onClick={handleCheckout}
-                  disabled={!canPay}
-                  className="hidden w-full h-12 text-sm font-bold gap-2 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/20 lg:flex"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Processando Pedido...
-                    </>
-                  ) : (
-                    <span>{selectedPaymentOption ? `Pagar com ${PAYMENT_METHOD_LABELS[selectedPaymentOption.value]}` : "Escolha como pagar"}</span>
-                  )}
-                </Button>
+
+
+
               </div>
             )}
           </div>
         </div>
 
         {/* Lado Direito: Resumo dos Itens e Valores */}
-        <div className="lg:col-span-4">
-          <div className="min-w-0 lg:sticky lg:top-40 space-y-5 rounded-2xl bg-card p-4 sm:p-6 shadow-xl shadow-slate-900/10 dark:shadow-black/30">
-            <h2 className="font-extrabold text-base text-foreground">Resumo da Compra</h2>
+        <div className="min-w-0 lg:col-span-4">
+          <div className="min-w-0 space-y-5 rounded-2xl border border-border/70 bg-muted/30 p-4 sm:p-6 lg:sticky lg:top-32">
+            <h2 className="font-extrabold text-base text-foreground">Seu pedido</h2>
 
             {/* Lista compacta de itens */}
             <div className="space-y-3 max-h-56 overflow-y-auto pr-1 no-scrollbar divide-y divide-border/50 text-xs">
               {items.map((item) => (
                 <div key={item.product.id} className="pt-2 first:pt-0 flex justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <span className="font-semibold text-foreground truncate block">
+                    <span className="block text-sm font-medium leading-relaxed text-foreground line-clamp-2">
                       {item.product.name || item.product.title}
                     </span>
                     <span className="text-[11px] text-muted-foreground block">
                       Qtd: {item.quantity} × {formatCurrency(item.product.price)}
                     </span>
                   </div>
-                  <span className="font-mono font-bold text-foreground">
+                  <span className="shrink-0 font-bold tabular-nums text-foreground">
                     {formatCurrency(item.product.price * item.quantity)}
                   </span>
                 </div>
@@ -883,16 +855,31 @@ export default function CheckoutPage() {
               <div className="flex justify-between text-muted-foreground">
                 <span>Frete</span>
                 <span className="font-semibold text-primary">
-                  {deliveryMethod === "pickup" ? "Retirada grátis" : shippingQuote.option ? formatCurrency(shippingPrice) : "A combinar com a loja"}
+                  {freightLabel}
                 </span>
               </div>
+              {paymentMethod==='CREDIT_CARD'&&Boolean(terms.quote?.interest)&&<div className="flex justify-between gap-3 text-muted-foreground"><span>Acréscimo do cartão</span><span className="shrink-0 font-semibold tabular-nums text-foreground">{formatCurrency(terms.quote?.interest||0)}</span></div>}
               <div className="flex justify-between items-baseline pt-3 border-t border-border/60 text-base">
-                <span className="font-bold text-foreground">Total</span>
-                <span className="text-2xl font-black text-foreground">
+                <span className="font-bold text-foreground">{shippingReady?"Total":"Subtotal"}</span>
+                <span className="text-2xl font-bold tabular-nums text-foreground">
                   {formatCurrency(finalTotal)}
                 </span>
               </div>
             </div>
+            {!isWaitingPayment&&<div className="space-y-3">                <Button
+                  size="lg"
+                  onClick={handleCheckout}
+                  disabled={!canPay}
+                  className="hidden w-full h-12 text-sm font-bold gap-2 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/20 lg:flex"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Processando Pedido...
+                    </>
+                  ) : (
+                    <span>{selectedPaymentOption ? `Pagar com ${PAYMENT_METHOD_LABELS[selectedPaymentOption.value]}` : "Escolha como pagar"}</span>
+                  )}
+                </Button><p className="hidden items-center justify-center gap-1.5 text-[11px] text-muted-foreground lg:flex"><Lock className="size-3"/>Pagamento protegido pelo Asaas</p></div>}
           </div>
         </div>
       </div>
@@ -906,10 +893,10 @@ export default function CheckoutPage() {
             isKeyboardOpen ? "pointer-events-none translate-y-full" : "translate-y-0"
           }`}
         >
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+          <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-center gap-3">
             <div className="min-w-0">
               <span className="block text-[11px] text-muted-foreground">
-                {deliveryMethod === "pickup" ? "Total · retirada grátis" : shippingQuote.option ? "Total com frete" : "Total · frete a combinar"}
+                {totalLabel}
               </span>
               <span className="block text-lg font-extrabold tabular-nums text-foreground">{formatCurrency(finalTotal)}</span>
             </div>
@@ -925,7 +912,7 @@ export default function CheckoutPage() {
                 void handleCheckout();
               }}
               disabled={!canPay}
-              className="h-12 min-w-0 shrink-0 gap-2 rounded-xl px-3 sm:px-5 text-sm font-bold shadow-md shadow-primary/25"
+              className="h-auto min-h-12 min-w-0 gap-2 whitespace-normal rounded-xl px-3 py-2 text-xs font-bold shadow-md shadow-primary/25 sm:px-5 sm:text-sm"
             >
               {isProcessing ? (
                 <>

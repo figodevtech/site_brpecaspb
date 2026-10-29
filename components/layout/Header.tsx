@@ -195,27 +195,26 @@ export function Header({ categories = [] }: { categories?: ProductCategory[] }) 
       {/* Category Navigation Bar */}
       <nav aria-label="Categorias de produtos" className="relative bg-[#12151D] border-t border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-2 py-1.5 text-xs font-medium">
-          <div className="min-w-0 flex-1 overflow-x-auto scrollbar-none">
-            <div className="flex items-center gap-1 whitespace-nowrap">
+          <div className="min-w-0 flex-1">
+            <div className="grid grid-cols-2 items-center gap-1 md:grid-cols-4 xl:grid-cols-5">
               <Link
                 href="/produtos"
                 onClick={() => setCategoriesExpanded(false)}
-                className="text-white hover:text-[#FF6B00] px-3 py-1.5 rounded hover:bg-white/5 flex items-center gap-1.5 font-semibold text-[#FF6B00]"
+                className="flex min-w-0 items-center gap-1.5 whitespace-nowrap rounded px-2 py-1.5 font-semibold text-[#FF6B00] hover:bg-white/5"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                Todas as Peças
+                <Sparkles className="size-3.5 shrink-0" />
+                <span className="truncate">Todas as Peças</span>
               </Link>
 
-              <span className="text-zinc-700">|</span>
-
-              {navCategories.map((cat) => (
+              {navCategories.slice(0,4).map((cat,index) => (
                 <Link
                   key={cat.href}
                   href={cat.href}
                   onClick={() => setCategoriesExpanded(false)}
-                  className="text-zinc-300 hover:text-white px-3 py-1.5 rounded hover:bg-white/5 transition-colors flex items-center gap-1"
+                  title={cat.name}
+                  className={`min-w-0 items-center gap-1 rounded px-2 py-1.5 text-zinc-300 transition-colors hover:bg-white/5 hover:text-white ${index===0?'flex':index<3?'hidden md:flex':'hidden xl:flex'}`}
                 >
-                  {cat.name}
+                  <span className="truncate">{cat.name}</span>
                   {cat.badge && (
                     <span className="bg-[#FF6B00] text-black text-[9px] font-extrabold px-1 py-0.2 rounded-sm ml-0.5">
                       {cat.badge}
@@ -235,7 +234,7 @@ export function Header({ categories = [] }: { categories?: ProductCategory[] }) 
               setCategoriesExpanded(!categoriesExpanded);
               setMobileMenuOpen(false);
             }}
-            className="flex shrink-0 items-center gap-1.5 rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-2 font-semibold text-orange-400 transition-colors hover:bg-orange-500/20 hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+            className="flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-orange-500/30 bg-orange-500/10 px-2.5 font-semibold text-orange-400 transition-colors hover:bg-orange-500/20 hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
           >
             {categoriesExpanded ? "Recolher" : "Ver todas"}
             <ChevronDown aria-hidden="true" className={`size-3.5 transition-transform motion-reduce:transition-none ${categoriesExpanded ? "rotate-180" : ""}`} />

@@ -1,3 +1,4 @@
+import type { CardPaymentQuote } from '@/lib/card-payment-quote';
 export type ConditionType = "NOVO" | "USADO" | "RECONDICIONADO";
 
 export interface ProductImage {
@@ -9,6 +10,7 @@ export interface ProductImage {
 }
 
 export interface Product {
+  cardPaymentTerms?: CardPaymentQuote|null;
   id: number;
   titulo: string;
   tituloMarketplace?: string | null;

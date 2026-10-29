@@ -1,3 +1,4 @@
+import { getProductPaymentPolicy } from "@/lib/catalog/card-payment-terms";
 import React from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -51,5 +52,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
 
-  return <ProductDetailView product={product} />;
+  const initialPaymentPolicy=(product.preco_site??product.precovenda)>0?await getProductPaymentPolicy(product.id):null;
+  return <ProductDetailView product={product} initialPaymentPolicy={initialPaymentPolicy}/>;
 }

@@ -325,6 +325,19 @@ test('transparent card checkout sends card only to Asaas and keeps authoritative
   }
 });
 
+test('both checkout servers validate free shipping before reserving stock and charge only products',async()=>{
+ for(const file of ['app/api/checkout/route.ts','../site_demirdiesel/app/api/checkout/route.ts']){
+  let charged=0,reserved=0,snapshot;
+  const admin={from(table){const data=table==='cliente'?{id:7,user_id:'user-1',nomerazaosocial:'TEST USER',cpfcnpj:'11144477735',telefone:'83999990000',email:'test@example.test',asaas_customer_id:'cus_test'}:table==='cliente_endereco'?{id:3,cliente_id:7,cep:'58108152',numero:'10'}:table==='produto'?[{id:9,titulo:'Peca',precovenda:100,estoque:3,visible:true,is_deleted:false}]:null;
+   return {select(){return this;},eq(){return this;},not(){return this;},in(){return this;},update(){return this;},maybeSingle:async()=>({data,error:null}),then(resolve){return Promise.resolve({data,error:null}).then(resolve);}};
+  },async rpc(name,payload){if(name==='fn_start_checkout'){reserved++;assert.equal(payload.p_total,200);snapshot=payload;return {data:{orderId:42,started:true},error:null};}if(name==='fn_checkout_sending'||name==='fn_checkout_bind')return {data:true,error:null};throw Error(name);}};
+  const handlers=route(file,{user:{id:'user-1'},admin,policy:{...route('lib/checkout-policy.ts').defaultCheckoutPolicy,freeShipping:true},asaas:{findAsaasCustomer:async()=>({id:'cus_test'}),disableAsaasCustomerNotifications:async()=>{},createAsaasPayment:async payload=>{charged++;assert.equal(payload.value,200);return {id:'pay_free',status:'PENDING',billingType:'PIX'};}}});
+  const body={checkoutAttemptId:'10000000-0000-4000-8000-000000000001',transparent:true,billingType:'PIX',addressId:3,deliveryMethod:'delivery',items:[{productId:9,quantity:2}],shippingServiceId:999999,expectedShipping:0,expectedTotal:200};
+  assert.equal((await handlers.POST(request({...body,expectedShipping:30}))).status,409);assert.equal(reserved,0);assert.equal(charged,0);
+  assert.equal((await handlers.POST(request(body))).status,200);assert.equal(charged,1);assert.equal(reserved,1);assert.match(JSON.stringify(snapshot),/merchantShippingProductIds/);assert.match(JSON.stringify(snapshot),/"mode":"free"/);
+ }
+});
+
 test('both checkouts enforce ERP installments, debit redirect, explicit card consent and authoritative interest',async()=>{
  const credit={holderName:'TEST USER',number:'4111111111111111',expiryMonth:'12',expiryYear:'2035',ccv:'123'};
  for(const file of ['app/api/checkout/route.ts','../site_demirdiesel/app/api/checkout/route.ts'])for(const mode of ['credit','installments','debit','save','changed','shipping','shipping-changed']){

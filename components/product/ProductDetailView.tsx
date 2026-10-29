@@ -1,5 +1,6 @@
 "use client";
 
+import type { CardPaymentPolicy } from "@/lib/card-payment-policies";
 import React from "react";
 import { ProductImageCarousel } from "./ProductImageCarousel";
 import Link from "next/link";
@@ -21,10 +22,11 @@ import { siteConfig } from "@/lib/site-config";
 import { Button } from "@/components/ui/button";
 
 interface ProductDetailViewProps {
+  initialPaymentPolicy?:CardPaymentPolicy|null;
   product: Product;
 }
 
-export function ProductDetailView({ product }: ProductDetailViewProps) {
+export function ProductDetailView({ product,initialPaymentPolicy }: ProductDetailViewProps) {
   const { addItem } = useCartContext();
   const { isFavorite, toggleFavorite } = useWishlistContext();
 
@@ -160,7 +162,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
                         à vista no Pix
                       </span>
                     </div>
-                    <div className="mt-2"><ProductPaymentTerms productId={product.id} price={price}/></div>
+                    <div className="mt-2"><ProductPaymentTerms productId={product.id} price={price} initialPolicy={initialPaymentPolicy}/></div>
                   </div>
                 ) : (
                   <div className="mt-6 p-5 rounded-2xl bg-orange-50/60 border border-orange-200">

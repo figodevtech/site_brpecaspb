@@ -1,3 +1,4 @@
+import { withCardPaymentTerms } from "@/lib/catalog/card-payment-terms";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Product } from "@/lib/types";
@@ -59,7 +60,7 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ success: true, products });
+    return NextResponse.json({ success: true, products:await withCardPaymentTerms(products,product=>product.preco_site??product.precovenda) });
   } catch (err) {
     console.error("Erro na rota de favoritos:", err);
     return NextResponse.json(
