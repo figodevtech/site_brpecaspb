@@ -181,7 +181,7 @@ export default function CartPage() {
                 Resumo da Compra
               </h3>
 
-              <ShippingSimulator productIds={items.map(item=>item.produto.id)}/>
+              <ShippingSimulator productIds={items.map(item=>item.produto.id)} prefillFromAccount/>
 
               {/* Valores Totais */}
               <div className="space-y-2 pt-3 border-t border-zinc-100 text-xs">

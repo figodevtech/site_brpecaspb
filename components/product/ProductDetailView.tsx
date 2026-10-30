@@ -222,7 +222,7 @@ export function ProductDetailView({ product,initialPaymentPolicy }: ProductDetai
                   )}
                 </div>
 
-                <div className="mt-8"><ShippingSimulator productIds={[product.id]}/></div>
+                <div className="mt-8"><ShippingSimulator productIds={[product.id]} prefillFromAccount/></div>
               </div>
             </div>
           </div>

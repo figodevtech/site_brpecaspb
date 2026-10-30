@@ -18,8 +18,7 @@ export function ProductCardPaymentTerms({productId,price,initialQuote}:{productI
  if(initialQuote===undefined&&!current)return <div className="mt-1 min-h-8" aria-hidden="true"/>;
  return <div className="mt-1 min-h-8 text-[10px] leading-relaxed text-muted-foreground sm:text-[11px]">
   {!best?<p>Consulte as condições no produto.</p>:<>
-   <p>{best.count>1?'Até ':''}<span className="font-medium text-foreground">{best.count}x de {money(best.installment)}</span>{best.interest?' com acréscimo':' sem acréscimo'}</p>
-   {best.interest>0&&<p>Total no cartão: {money(best.total)}</p>}
+   <p>{best.count>1?'Ou até ':'Ou '}<span className="font-medium text-foreground">{best.count}x de {money(best.installment)}</span>{best.interest?'':' sem juros'}</p>
   </>}
  </div>;
 }
