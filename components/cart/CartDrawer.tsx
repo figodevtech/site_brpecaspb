@@ -1,4 +1,5 @@
 "use client";
+import { FreeShippingNotice } from "@/components/product/FreeShippingNotice";
 
 import React from "react";
 import Image from "next/image";
@@ -145,6 +146,7 @@ export function CartDrawer() {
         {/* Footer com Subtotal e Checkout */}
         {items.length > 0 && (
           <div className="p-4 border-t border-zinc-200 bg-zinc-50 space-y-3">
+            <FreeShippingNotice subtotal={subtotal} />
             <div className="flex items-center justify-between text-sm">
               <span className="text-zinc-600">Subtotal:</span>
               <span className="font-black text-lg text-zinc-950">{formatPrice(subtotal)}</span>

@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+export function qualifiesForFreeShipping(subtotal: number, minimumCents?: number | null) {
+  return Number.isSafeInteger(minimumCents) && Number(minimumCents) > 0
+    && Number.isFinite(subtotal) && subtotal > 0
+    && Math.round(subtotal * 100) >= Number(minimumCents);
+}
+
 export const checkoutPolicySchema = z.object({
   maxInstallments: z.number().int().min(1).max(12),
   minimumInstallment: z.number().min(5).max(1000000),

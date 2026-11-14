@@ -15,6 +15,7 @@ import {
 import { useCartContext } from "@/components/providers/CartProvider";
 import { formatPrice } from "@/lib/utils";
 import { ShippingSimulator } from "@/components/product/ShippingSimulator";
+import { FreeShippingNotice } from "@/components/product/FreeShippingNotice";
 import { Button } from "@/components/ui/button";
 
 export default function CartPage() {
@@ -181,7 +182,8 @@ export default function CartPage() {
                 Resumo da Compra
               </h3>
 
-              <ShippingSimulator productIds={items.map(item=>item.produto.id)}/>
+              <FreeShippingNotice subtotal={subtotal} />
+              <ShippingSimulator productIds={items.map(item=>item.produto.id)} items={items.map(item=>({productId:item.produto.id,quantity:item.quantidade}))}/>
 
               {/* Valores Totais */}
               <div className="space-y-2 pt-3 border-t border-zinc-100 text-xs">

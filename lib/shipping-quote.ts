@@ -2,26 +2,58 @@ import 'server-only';
 import { shippingAccessToken,ShippingAuthError } from '@/lib/melhor-envio-oauth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getCheckoutPolicy } from '@/lib/erp-checkout-policy';
+import { qualifiesForFreeShipping } from '@/lib/checkout-policy';
 
 export const FREE_SHIPPING_ID=999999;
 export function freeShippingOption(){return {id:FREE_SHIPPING_ID,name:'Frete grátis',company:'Envio escolhido pela loja',price:0,days:0,merchantSelected:true};}
 export type ShippingOption={id:number;name:string;company:string;price:number;days:number;merchantSelected?:boolean};
 export const SHIPPING_UNAVAILABLE_MESSAGE='Não foi possível calcular o frete agora. Tente novamente em instantes ou fale com a loja.';
 export class ShippingQuoteError extends Error { constructor(message:string,public status=422,public publicMessage=message){super(message);} }
+export async function hasCartFreeShipping(items: {productId:number;quantity:number}[], config: Awaited<ReturnType<typeof getCheckoutPolicy>>) {
+  if (!config.available) return false;
+  if (items.every(item => config.policies[String(item.productId)]?.freeShipping === true)) return true;
+  if (!config.freeShippingMinimumCents) return false;
+  const quantities = new Map<number, number>();
+  for (const item of items) quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + item.quantity);
+  if ([...quantities.values()].some(quantity => !Number.isInteger(quantity) || quantity < 1 || quantity > 999)) {
+    throw new ShippingQuoteError('Confira as quantidades do carrinho.');
+  }
+  const {data, error} = await supabaseAdmin.from('produto').select('id,precovenda,visible,is_deleted').in('id', [...quantities.keys()]);
+  if (error) throw new ShippingQuoteError('Não foi possível conferir os preços do carrinho.', 503);
+  let subtotalCents = 0;
+  for (const [id, quantity] of quantities) {
+    const product = data?.find(row => Number(row.id) === id);
+    const price = Number(product?.precovenda);
+    if (!product || product.visible === false || product.is_deleted || !Number.isFinite(price) || price <= 0) {
+      throw new ShippingQuoteError('Um produto não está disponível. Atualize seu carrinho.');
+    }
+    subtotalCents += Math.round(price * 100) * quantity;
+  }
+  return qualifiesForFreeShipping(subtotalCents / 100, config.freeShippingMinimumCents);
+}
 export async function quoteShipping(cep:string,items:{productId:number;quantity:number}[]){
- let access;
- try{access=await shippingAccessToken();}catch(error){throw new ShippingQuoteError(error instanceof ShippingAuthError?error.message:'Não foi possível autorizar a consulta de frete.',503,SHIPPING_UNAVAILABLE_MESSAGE);}
- const {token,environment}=access;
  if(!/^\d{8}$/.test(cep)||!items.length||items.length>100||items.some(i=>!Number.isInteger(i.productId)||i.productId<=0||!Number.isInteger(i.quantity)||i.quantity<1||i.quantity>999))throw new ShippingQuoteError('Confira o CEP e os produtos para calcular o frete.');
  const quantities=new Map<number,number>();
  for(const item of items)quantities.set(item.productId,(quantities.get(item.productId)||0)+item.quantity);
  if([...quantities.values()].some(q=>q>999))throw new ShippingQuoteError('Quantidade acima do limite de cotação.');
  const ids=[...quantities.keys()];
  const [config,catalog]=await Promise.all([getCheckoutPolicy(ids),supabaseAdmin.from('produto').select('id,precovenda,visible,is_deleted').in('id',ids)]);
- if(!config.available||!config.originCep)throw new ShippingQuoteError('A loja precisa conferir o CEP em Configurações → Empresa antes de calcular o frete.',503,SHIPPING_UNAVAILABLE_MESSAGE);
+ if(!config.available)throw new ShippingQuoteError('Não foi possível consultar as regras de frete.',503,SHIPPING_UNAVAILABLE_MESSAGE);
  if(catalog.error)throw new ShippingQuoteError('Não foi possível consultar os produtos para envio.',503);
  const chargedIds=ids.filter(id=>config.policies[String(id)]?.freeShipping!==true);
- if(!chargedIds.length)return {options:[freeShippingOption()],quotedAt:new Date().toISOString(),environment:null};
+ const subtotalCents = ids.reduce((sum, id) => {
+  const product = catalog.data?.find(row => Number(row.id) === id);
+  const price = Number(product?.precovenda);
+  if (!product || product.visible === false || product.is_deleted || !Number.isFinite(price) || price <= 0) {
+   throw new ShippingQuoteError('Um produto não está disponível para envio. Atualize seu carrinho.');
+  }
+  return sum + Math.round(price * 100) * quantities.get(id)!;
+ }, 0);
+ if(!chargedIds.length||qualifiesForFreeShipping(subtotalCents/100,config.freeShippingMinimumCents))return {options:[freeShippingOption()],quotedAt:new Date().toISOString(),environment:null};
+ if(!config.originCep)throw new ShippingQuoteError('A loja precisa conferir o CEP em Configurações → Empresa antes de calcular o frete.',503,SHIPPING_UNAVAILABLE_MESSAGE);
+ let access;
+ try{access=await shippingAccessToken();}catch(error){throw new ShippingQuoteError(error instanceof ShippingAuthError?error.message:'Não foi possível autorizar a consulta de frete.',503,SHIPPING_UNAVAILABLE_MESSAGE);}
+ const {token,environment}=access;
  const products=chargedIds.map(id=>{
   const product=catalog.data?.find(p=>Number(p.id)===id),pack=config.policies[String(id)]?.shippingPackage;
   if(!product||product.visible===false||product.is_deleted||!(Number(product.precovenda)>0))throw new ShippingQuoteError('Um produto não está disponível para envio. Atualize seu carrinho.');

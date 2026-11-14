@@ -2,7 +2,7 @@ import { automaticShippingEnabled } from '@/lib/melhor-envio-oauth';
 import { getCardFees } from '@/lib/asaas-fees';
 import { quoteShipping, ShippingQuoteError, SHIPPING_UNAVAILABLE_MESSAGE } from '@/lib/shipping-quote';
 import { getCheckoutPolicy } from '@/lib/erp-checkout-policy';
-import { installmentQuoteForItems } from '@/lib/checkout-policy';
+import { installmentQuoteForItems, qualifiesForFreeShipping } from '@/lib/checkout-policy';
 import { saveCheckoutCard } from '@/lib/save-checkout-card';
 import { attemptIdentity, resumeCheckout, bindCheckoutPayment, checkoutFailed } from '@/lib/checkout-attempt';
 import { erpCheckout, InventoryError } from '@/lib/erp-checkout';
@@ -371,11 +371,12 @@ export async function POST(request: Request) {
 
     // 6. RECALCULA SUBTOTAL E TOTAL NO SERVIDOR
     const serverSubtotal = validatedItems.reduce((acc, it) => acc + it.subtotal, 0);
-    const {policies,revision:policyRevision,available:policyAvailable}=await getCheckoutPolicy(validatedItems.map(it=>it.id));
+    const {policies,revision:policyRevision,available:policyAvailable,freeShippingMinimumCents}=await getCheckoutPolicy(validatedItems.map(it=>it.id));
     if(billingType==='CREDIT_CARD'&&!debit&&!policyAvailable)return NextResponse.json({message:'Não foi possível conferir as regras do cartão. Tente novamente ou escolha Pix.'},{status:503});
     let shipping: {mode:string;id?:number;name?:string;company?:string;price:number|null;days?:number;quotedAt?:string;merchantShippingProductIds?:number[]}={mode:deliveryMethod==='pickup'?'pickup':'manual',price:deliveryMethod==='pickup'?0:null};
     if(deliveryMethod==='delivery'&&!policyAvailable)return NextResponse.json({message:SHIPPING_UNAVAILABLE_MESSAGE},{status:503});
-    const allFreeShipping=policyAvailable&&validatedItems.every(item=>policies[String(item.id)]?.freeShipping===true);
+    const thresholdFreeShipping = policyAvailable && qualifiesForFreeShipping(serverSubtotal, freeShippingMinimumCents);
+    const allFreeShipping=policyAvailable&&(thresholdFreeShipping||validatedItems.every(item=>policies[String(item.id)]?.freeShipping===true));
     if(deliveryMethod==='delivery'&&allFreeShipping){
       if(body.shippingServiceId!==999999||body.expectedShipping!==0)return NextResponse.json({message:'Atualize as condições de envio antes de pagar.'},{status:409});
       shipping={mode:'free',name:'Frete grátis: envio escolhido e pago pela loja',price:0};
@@ -388,7 +389,8 @@ export async function POST(request: Request) {
         shipping={mode:'melhor_envio',...selected,quotedAt:result.quotedAt};
       }catch(error){if(error instanceof ShippingQuoteError&&error.publicMessage!==error.message)console.warn('[checkout/shipping]',{message:error.message,status:error.status});return NextResponse.json({message:error instanceof ShippingQuoteError?error.publicMessage:SHIPPING_UNAVAILABLE_MESSAGE},{status:error instanceof ShippingQuoteError?error.status:503});}
     }
-    if(deliveryMethod==='delivery')shipping.merchantShippingProductIds=validatedItems.filter(item=>policies[String(item.id)]?.freeShipping===true).map(item=>item.id);
+    if(deliveryMethod==='delivery'&&body.shippingServiceId===999999&&!allFreeShipping)return NextResponse.json({message:'O carrinho n?o atende mais ?s condi??es de frete gr?tis. Atualize a cota??o.'},{status:409});
+    if(deliveryMethod==='delivery')shipping.merchantShippingProductIds=validatedItems.filter(item=>thresholdFreeShipping||policies[String(item.id)]?.freeShipping===true).map(item=>item.id);
     // Pix and hosted debit do not use the credit-card fee policy.
     const paymentPolicies=billingType==='CREDIT_CARD'&&!debit?policies:Object.fromEntries(Object.entries(policies).map(([id,policy])=>[id,{...policy,feeMode:'absorbed' as const}]));
     let fees=null;

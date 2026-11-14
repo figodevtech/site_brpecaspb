@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const root = new URL('../', import.meta.url);
 
 // Run the actual route handlers with isolated environment and service doubles.
-function route(file, { env = {}, admin, user = null, revalidatePath = () => {}, fetchMock, asaas = {}, inventory = async () => ({reserved:true}), policy } = {}) {
+function route(file, { env = {}, admin, user = null, revalidatePath = () => {}, fetchMock, asaas = {}, inventory = async () => ({reserved:true}), policy, minimumCents = null } = {}) {
   const exports = {};
   const code = ts.transpileModule(fs.readFileSync(new URL(file, root), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
@@ -33,7 +33,7 @@ function route(file, { env = {}, admin, user = null, revalidatePath = () => {}, 
       if (name === '@/lib/asaas-fees') return {getCardFees:async()=>({operationValue:0.5,one:2,six:4,twelve:6})};
       if (name === '@/lib/shipping-quote') return route('lib/shipping-quote.ts',{env,admin,policy,fetchMock});
       if (name === '@/lib/checkout-policy') return route('lib/checkout-policy.ts');
-      if (name === '@/lib/erp-checkout-policy') return {getCheckoutPolicy:async(ids=[])=>({policies:Object.fromEntries(ids.map(id=>[String(id),policy||route('lib/checkout-policy.ts').defaultCheckoutPolicy])),revision:'test',available:true,originCep:'58000000'})};
+      if (name === '@/lib/erp-checkout-policy') return {getCheckoutPolicy:async(ids=[])=>({policies:Object.fromEntries(ids.map(id=>[String(id),policy||route('lib/checkout-policy.ts').defaultCheckoutPolicy])),revision:'test',available:true,originCep:'58000000',freeShippingMinimumCents:minimumCents})};
       if (name === '@/lib/save-checkout-card') return route('lib/save-checkout-card.ts',{admin});
       if (name === '@/lib/payment-methods') return route('lib/payment-methods.ts');
       if (name === '@/lib/site-config') return { siteConfig: { url: 'https://www.brpecaspb.com.br', address: { full: 'Loja' } } };
@@ -340,18 +340,18 @@ test('both checkout servers validate free shipping before reserving stock and ch
 
 test('both checkouts enforce ERP installments, debit redirect, explicit card consent and authoritative interest',async()=>{
  const credit={holderName:'TEST USER',number:'4111111111111111',expiryMonth:'12',expiryYear:'2035',ccv:'123'};
- for(const file of ['app/api/checkout/route.ts','../site_demirdiesel/app/api/checkout/route.ts'])for(const mode of ['credit','installments','debit','save','changed','shipping','shipping-changed']){
+ for(const file of ['app/api/checkout/route.ts','../site_demirdiesel/app/api/checkout/route.ts'])for(const mode of ['credit','installments','debit','save','changed','shipping','shipping-changed','free-shipping','free-shipping-invalid']){
   let payload;const cardWrites=[];let stockReservations=0;
   const admin={from(table){
    const data=table==='cliente'?{id:7,user_id:'user-1',nomerazaosocial:'TEST USER',cpfcnpj:'11144477735',telefone:'83999990000',email:'test@example.test',asaas_customer_id:'cus_test'}:table==='cliente_endereco'?{id:3,cliente_id:7,cep:'58108152',numero:'10'}:table==='produto'?[{id:9,titulo:'Peca',precovenda:100,estoque:3,visible:true,is_deleted:false}]:null;
    return {select(){return this;},eq(){return this;},not(){return this;},in(){return this;},update(){return this;},insert(value){assert.equal(table,'customer_payment_card');cardWrites.push(value);return Promise.resolve({error:null});},maybeSingle:async()=>({data,error:null}),then(resolve){return Promise.resolve({data,error:null,count:0}).then(resolve);}};
   },async rpc(name,args){if(name==='fn_start_checkout'){assert.equal(args.p_total,mode==='installments'?204.17:mode.startsWith('shipping')?230:200);return {data:{orderId:42,started:true},error:null};}return {data:true,error:null};}};
-  const handler=route(file,{env:mode.startsWith('shipping')?{MELHOR_ENVIO_TOKEN:'test-token',MELHOR_ENVIO_ENVIRONMENT:'production',NEXT_PUBLIC_COMPANY_EMAIL:'test@example.test'}:{},fetchMock:async()=>Response.json([{id:1,name:'PAC',company:{name:'Correios'},price:'1.00',custom_price:'30.00',custom_delivery_time:5}]),user:{id:'user-1'},admin,policy:{maxInstallments:3,minimumInstallment:5,interestFreeInstallments:1,monthlyInterestPercent:0,feeMode:'incremental',shippingPackage:{weight:1,width:15,height:10,length:20},shippingRates:[]},inventory:async()=>{stockReservations++;return {reserved:true};},asaas:{
+  const handler=route(file,{minimumCents:mode==='free-shipping'?20000:mode==='free-shipping-invalid'?20001:null,env:mode.startsWith('shipping')?{MELHOR_ENVIO_TOKEN:'test-token',MELHOR_ENVIO_ENVIRONMENT:'production',NEXT_PUBLIC_COMPANY_EMAIL:'test@example.test'}:{},fetchMock:async()=>Response.json([{id:1,name:'PAC',company:{name:'Correios'},price:'1.00',custom_price:'30.00',custom_delivery_time:5}]),user:{id:'user-1'},admin,policy:{maxInstallments:3,minimumInstallment:5,interestFreeInstallments:1,monthlyInterestPercent:0,feeMode:'incremental',shippingPackage:{weight:1,width:15,height:10,length:20},shippingRates:[]},inventory:async()=>{stockReservations++;return {reserved:true};},asaas:{
    findAsaasCustomer:async()=>({id:'cus_test',notificationDisabled:true}),
    createAsaasPayment:async body=>{payload=body;return {id:'pay_test',customer:'cus_test',value:body.totalValue||body.value,billingType:'CREDIT_CARD',status:'CONFIRMED',invoiceUrl:'https://www.asaas.com/i/test',creditCard:{creditCardToken:'token-safe',creditCardBrand:'VISA'}};},
   }});
-  const response=await handler.POST(request({checkoutAttemptId:'10000000-0000-4000-8000-000000000001',addressId:3,items:[{productId:9,quantity:2}],billingType:mode==='debit'?'DEBIT_CARD':'CREDIT_CARD',transparent:true,installmentCount:mode==='installments'||mode==='changed'?3:1,expectedTotal:mode==='installments'?204.17:mode.startsWith('shipping')?230:200,shippingServiceId:mode.startsWith('shipping')?1:undefined,expectedShipping:mode==='shipping-changed'?29:30,saveCard:mode==='save',card:credit}));
-  if(mode==='changed'||mode==='shipping-changed'){assert.equal(response.status,409);assert.equal(payload,undefined);assert.equal(stockReservations,0);continue;}
+  const response=await handler.POST(request({checkoutAttemptId:'10000000-0000-4000-8000-000000000001',addressId:3,items:[{productId:9,quantity:2}],billingType:mode==='debit'?'DEBIT_CARD':'CREDIT_CARD',transparent:true,installmentCount:mode==='installments'||mode==='changed'?3:1,expectedTotal:mode==='installments'?204.17:mode.startsWith('shipping')?230:200,shippingServiceId:mode.startsWith('free-shipping')?999999:mode.startsWith('shipping')?1:undefined,expectedShipping:mode.startsWith('free-shipping')?0:mode==='shipping-changed'?29:30,saveCard:mode==='save',card:credit}));
+  if(mode==='changed'||mode==='shipping-changed'||mode==='free-shipping-invalid'){assert.equal(response.status,409);assert.equal(payload,undefined);assert.equal(stockReservations,0);continue;}
   assert.equal(response.status,200,file+mode);const result=await response.json();
   if(mode==='debit'){assert.equal(payload.billingType,'CREDIT_CARD');assert.equal(payload.creditCard,undefined);assert.equal(result.directPayment,false);assert.ok(result.url);}
   else assert.equal(result.directPayment,true);
