@@ -183,7 +183,11 @@ export default function CartPage() {
               </h3>
 
               <FreeShippingNotice subtotal={subtotal} />
-              <ShippingSimulator productIds={items.map(item=>item.produto.id)} items={items.map(item=>({productId:item.produto.id,quantity:item.quantidade}))}/>
+              <ShippingSimulator
+                productIds={items.map(item => item.produto.id)}
+                items={items.map(item => ({ productId: item.produto.id, quantity: item.quantidade }))}
+                prefillFromAccount
+              />
 
               {/* Valores Totais */}
               <div className="space-y-2 pt-3 border-t border-zinc-100 text-xs">

@@ -6,6 +6,7 @@ import { CartProvider } from "@/components/providers/CartProvider";
 import { WishlistProvider } from "@/components/providers/WishlistProvider";
 import { Toaster } from "@/components/ui/sonner";
 import NextTopLoader from "nextjs-toploader";
+import { Analytics } from "@vercel/analytics/next";
 import { siteConfig } from "@/lib/site-config";
 import { getCategories } from "@/lib/catalog/categories";
 
@@ -83,6 +84,7 @@ export default async function RootLayout({
             <Toaster position="top-right" richColors />
           </CartProvider>
         </WishlistProvider></AuthProvider>
+        <Analytics />
       </body>
     </html>
   );

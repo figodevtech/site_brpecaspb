@@ -42,7 +42,7 @@ export function Header({ categories = [] }: { categories?: ProductCategory[] }) 
   };
 
   const navCategories: { name: string; href: string; badge?: string }[] = [
-    ...categories.map(category => ({ name: category.nome, href: `/categoria/${category.slug}` })),
+    ...categories.map(category => ({ name: category.nome, href: `/produtos?categoria=${category.id}` })),
     { name: "Peças Seminovas", href: "/produtos?condicao=USADO" },
     { name: "Peças Novas", href: "/produtos?condicao=NOVO" },
   ];

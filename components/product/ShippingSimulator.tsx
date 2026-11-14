@@ -1,5 +1,7 @@
 "use client";
-import { useEffect,useId,useState } from 'react';
+import { useEffect,useId,useRef,useState } from 'react';
+import { useAuth } from '@/components/providers/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { Loader2,Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,15 +39,30 @@ export function ShippingChoices({quote,disabled=false,compact=false}:{quote:Retu
  {quote.result&&<><RadioGroup aria-label="Serviço de entrega" disabled={disabled} value={quote.option?String(quote.option.id):''} onValueChange={id=>quote.select(Number(id))}>{quote.result.options.map(option=><Label key={option.id} htmlFor={`shipping-service-${option.id}`} className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-lg border ${compact?'p-2.5 text-sm':'p-3'}`}><RadioGroupItem id={`shipping-service-${option.id}`} value={String(option.id)}/><span className="min-w-0 flex-1"><span className="block font-medium">{option.merchantSelected?option.name:<>{option.company} · {option.name}</>}</span><span className="text-xs text-muted-foreground">{option.merchantSelected?'A loja escolhe o serviço e informa o prazo de envio.':`Prazo estimado: ${option.days} dias úteis após postagem`}</span></span><span className="shrink-0 tabular-nums">{option.price.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</span></Label>)}</RadioGroup>{quote.result.environment==='sandbox'&&<p className="text-xs text-muted-foreground">Cotação de teste, sem validade para postagem.</p>}</>}
  </div>;
 }
-export function ShippingSimulator({initialCep='',productIds,items}:{initialCep?:string;productIds:number[];items?:Item[]}){
+const formatCepValue=(value:string)=>{const digits=value.replace(/\D/g,'').slice(0,8);return digits.length>5?`${digits.slice(0,5)}-${digits.slice(5)}`:digits;};
+export function ShippingSimulator({initialCep='',productIds,items,prefillFromAccount=false}:{initialCep?:string;productIds:number[];items?:Item[];prefillFromAccount?:boolean}){
  const cepId=useId();
+ const {profile}=useAuth();
  const [cep,setCep]=useState(initialCep),[destination,setDestination]=useState('');
+ const touched=useRef(false);
  const quote=useShippingQuote(destination,items||productIds.map(productId=>({productId,quantity:1})));
+ // Com login feito, já calcula o frete para o endereço principal (ou o mais antigo) do cliente.
+ useEffect(()=>{
+  if(!prefillFromAccount||!profile?.id)return;
+  let active=true;
+  void supabase.from('cliente_endereco').select('cep').eq('cliente_id',profile.id).order('principal',{ascending:false}).order('id',{ascending:true}).limit(1).maybeSingle()
+   .then(({data})=>{
+    const digits=data?.cep?.replace(/\D/g,'')||'';
+    if(!active||touched.current||digits.length!==8)return;
+    setCep(formatCepValue(digits));setDestination(digits);
+   });
+  return()=>{active=false;};
+ },[prefillFromAccount,profile?.id]);
  return <section className="space-y-3 border-t border-border/70 py-4" aria-label="Calcular frete">
   <h3 className="flex items-center gap-2 text-sm font-medium"><Truck className="size-4 text-muted-foreground" aria-hidden="true"/>Calcular frete</h3>
   <form className="flex max-w-sm items-center gap-2" onSubmit={event=>{event.preventDefault();if(quote.busy||cep.replace(/\D/g,'').length!==8)return;setDestination(cep.replace(/\D/g,''));quote.refresh();}}>
    <Label htmlFor={cepId} className="sr-only">CEP de destino</Label>
-   <Input id={cepId} className="h-9 min-w-0 flex-1 bg-background text-sm" inputMode="numeric" autoComplete="postal-code" maxLength={9} placeholder="Digite seu CEP" value={cep} onChange={event=>{const digits=event.target.value.replace(/\D/g,'').slice(0,8);setCep(digits.length>5?`${digits.slice(0,5)}-${digits.slice(5)}`:digits);setDestination('');}}/>
+   <Input id={cepId} className="h-9 min-w-0 flex-1 bg-background text-sm" inputMode="numeric" autoComplete="postal-code" maxLength={9} placeholder="Digite seu CEP" value={cep} onChange={event=>{touched.current=true;setCep(formatCepValue(event.target.value));setDestination('');}}/>
    <Button type="submit" variant="secondary" size="sm" className="h-9 shrink-0 gap-1.5 px-4 text-xs font-medium" disabled={quote.busy||cep.replace(/\D/g,'').length!==8}>{quote.busy&&<Loader2 className="size-3.5 animate-spin" aria-hidden="true"/>}{quote.busy?'Calculando':'Calcular'}</Button>
   </form>
   {quote.error&&<p role="status" className="text-xs text-muted-foreground">{quote.error}</p>}
